@@ -1,0 +1,8 @@
+.env
+.DS_Store
+main
+bin
+*.zip
+node_modules
+__debug_bin
+*.pem
