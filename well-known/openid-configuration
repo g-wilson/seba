@@ -1,11 +1,11 @@
 {
     "issuer": "https://identity.0xf09f8dba.com",
-    "authorization_endpoint": "https://platform.0xf09f8dba.com/web/identity/create_authz",
-    "token_endpoint": "https://platform.0xf09f8dba.com/svc/auth/1/consume_authz",
+    "authorization_endpoint": "https://platform.0xf09f8dba.com/web/identity/authenticate",
+    "token_endpoint": "https://platform.0xf09f8dba.com/svc/auth/1/authenticate",
     "jwks_uri": "https://identity.0xf09f8dba.com/.well-known/jwks.json",
     "response_types_supported": ["code"],
     "response_modes_supported": ["query"],
-    "grant_types_supported": ["authorization_code","refresh_token"],
+    "grant_types_supported": ["email_token","refresh_token","invite_token"],
     "subject_types_supported": ["public"],
     "code_challenge_methods_supported": ["S256"],
     "require_request_uri_registration": true
