@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 
@@ -27,13 +26,13 @@ func main() {
 		Keys: []jose.JSONWebKey{},
 	}
 
-	key := jose.JSONWebKey{}
-	err := key.UnmarshalJSON([]byte(os.Getenv("SEBA_PRIVATE_KEY")))
-	if err != nil {
+	privKey := jose.JSONWebKey{}
+	err := privKey.UnmarshalJSON([]byte(os.Getenv("SEBA_PRIVATE_KEY")))
+	if err != nil || !privKey.Valid() {
 		panic("error parsing key")
 	}
 
-	keyset.Keys = append(keyset.Keys, key)
+	keyset.Keys = append(keyset.Keys, privKey.Public())
 
 	authenticator := devserver.NewAuthenticator(keyset, os.Getenv("SEBA_ISSUER"))
 	server := devserver.New(listenAddr)
@@ -51,7 +50,7 @@ func main() {
 	server.AddService("accounts", appInstance.AccountsEndpoint(), authenticator)
 
 	tok, _ := appInstance.CreateClientAccessToken("debug", []string{seba.ScopeSebaAdmin})
-	fmt.Println(fmt.Sprintf("client access token: %s", tok))
+	server.Log.Infof("client access token: %s", tok)
 
 	server.Listen()
 }
