@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/g-wilson/seba"
+	"github.com/g-wilson/seba/storage"
 
 	"gopkg.in/square/go-jose.v2/jwt"
 )
@@ -25,12 +26,7 @@ type IDTokenClaims struct {
 	jwt.Claims
 }
 
-func (a *App) CreateCredentials(ctx context.Context, userID string, client Client, authnID *string) (creds *seba.Credentials, err error) {
-	user, err := a.GetUser(ctx, &seba.GetUserRequest{UserID: userID})
-	if err != nil {
-		return nil, err
-	}
-
+func (a *App) CreateCredentials(ctx context.Context, user *storage.User, client Client, authnID *string) (creds *seba.Credentials, err error) {
 	refreshToken, err := GenerateToken(32)
 	if err != nil {
 		return
@@ -64,9 +60,13 @@ func (a *App) CreateCredentials(ctx context.Context, userID string, client Clien
 		return
 	}
 
+	emails, err := a.Storage.GetUserEmails(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
 	strEmails := []string{}
-	for _, em := range user.Emails {
-		strEmails = append(strEmails, em.Value)
+	for _, em := range emails {
+		strEmails = append(strEmails, em.Email)
 	}
 
 	idToken, err := jwt.Signed(a.jwtConfig.Signer).

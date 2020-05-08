@@ -74,7 +74,7 @@ func (a *App) useEmailToken(ctx context.Context, token string, client Client, ve
 		return nil, seba.ErrUserNotFound
 	}
 
-	creds, err = a.CreateCredentials(ctx, user.ID, client, &authn.ID)
+	creds, err = a.CreateCredentials(ctx, user, client, &authn.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +103,7 @@ func (a *App) useRefreshToken(ctx context.Context, token string, client Client) 
 		return nil, err
 	}
 
-	creds, err := a.CreateCredentials(ctx, user.ID, client, rt.AuthenticationID)
+	creds, err := a.CreateCredentials(ctx, user, client, rt.AuthenticationID)
 	if err != nil {
 		return nil, err
 	}
@@ -150,5 +150,5 @@ func (a *App) useInviteToken(ctx context.Context, token string, client Client) (
 		return nil, err
 	}
 
-	return a.CreateCredentials(ctx, user.ID, client, nil)
+	return a.CreateCredentials(ctx, user, client, nil)
 }
