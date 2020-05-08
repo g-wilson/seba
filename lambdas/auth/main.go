@@ -4,7 +4,6 @@ import (
 	seba "github.com/g-wilson/seba/app"
 
 	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/g-wilson/runtime"
 )
 
 func main() {
@@ -13,5 +12,5 @@ func main() {
 		panic(err)
 	}
 
-	lambda.Start(runtime.WrapRPCHTTPGateway(app.AuthEndpoint()))
+	lambda.Start(app.AuthEndpoint().WrapAPIGatewayHTTP())
 }
