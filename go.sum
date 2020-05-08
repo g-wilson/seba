@@ -18,6 +18,8 @@ github.com/g-wilson/runtime v0.0.0-20200410164334-bb49e77ae903 h1:1AHuhEwrcho/pm
 github.com/g-wilson/runtime v0.0.0-20200410164334-bb49e77ae903/go.mod h1:TZ6eszWGXyb3j8oxSh9rX/DCX3AEBX8us824LA2FfRo=
 github.com/g-wilson/runtime v0.0.0-20200413151856-a80c7c8cc0e6 h1:FJ9GrVoB39/EtvpzA4CC3jIA1b3dBdZ2YeUchNqvm/I=
 github.com/g-wilson/runtime v0.0.0-20200413151856-a80c7c8cc0e6/go.mod h1:TZ6eszWGXyb3j8oxSh9rX/DCX3AEBX8us824LA2FfRo=
+github.com/g-wilson/runtime v0.0.0-20200508151334-1bf213c106d4 h1:9IkYd+b+gUa7jthF5/IvbVCMq8Qt7J6Bs/k8cpFDcyQ=
+github.com/g-wilson/runtime v0.0.0-20200508151334-1bf213c106d4/go.mod h1:TZ6eszWGXyb3j8oxSh9rX/DCX3AEBX8us824LA2FfRo=
 github.com/go-chi/chi v4.1.0+incompatible h1:ETj3cggsVIY2Xao5ExCu6YhEh5MD6JTfcBzS37R260w=
 github.com/go-chi/chi v4.1.0+incompatible/go.mod h1:eB3wogJHnLi3x/kFX2A+IbTBlXxmMeXJVKy9tTv1XzQ=
 github.com/go-sql-driver/mysql v1.5.0/go.mod h1:DCzpHaOWr8IXmIStZouvnhqoel9Qv2LBy8hT2VhHyBg=

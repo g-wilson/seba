@@ -5,7 +5,7 @@ go 1.13
 require (
 	github.com/aws/aws-lambda-go v1.16.0
 	github.com/aws/aws-sdk-go v1.30.4
-	github.com/g-wilson/runtime v0.0.0-20200413151856-a80c7c8cc0e6
+	github.com/g-wilson/runtime v0.0.0-20200508151334-1bf213c106d4
 	github.com/guregu/dynamo v1.7.0
 	github.com/joho/godotenv v1.3.0
 	github.com/satori/go.uuid v1.2.0
