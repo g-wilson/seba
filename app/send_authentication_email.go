@@ -31,7 +31,7 @@ func (a *App) SendAuthenticationEmail(ctx context.Context, req *seba.SendAuthent
 
 	a.Logger.Debugf("email_token: %s", emailToken)
 
-	linkURL := fmt.Sprintf("%s?email_token=%s&state=%s", client.EmailAuthenticationURL, emailToken, url.QueryEscape(req.State))
+	linkURL := fmt.Sprintf("%s?code=%s&state=%s", client.EmailAuthenticationURL, emailToken, url.QueryEscape(req.State))
 
 	a.Logger.Debugf("link_url: %s", linkURL)
 

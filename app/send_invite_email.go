@@ -29,7 +29,7 @@ func (a *App) SendInviteEmail(ctx context.Context, req *seba.SendInviteEmailRequ
 
 	a.Logger.Debugf("invite_token: %s", invTok)
 
-	linkURL := fmt.Sprintf("%s?invite_token=%s", InviteCallbackURL, invTok)
+	linkURL := fmt.Sprintf("%s?code=%s", InviteCallbackURL, invTok)
 	email, err := emails.NewInviteEmail(req.Email, linkURL)
 	if err != nil {
 		logger.FromContext(ctx).Entry().
