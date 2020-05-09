@@ -1,8 +1,11 @@
 package app
 
 import (
+	"context"
+
 	"github.com/g-wilson/seba/idcontext"
 
+	"github.com/g-wilson/runtime/logger"
 	"github.com/g-wilson/runtime/rpcservice"
 	"github.com/xeipuuv/gojsonschema"
 )
@@ -62,6 +65,7 @@ func (a *App) AuthEndpoint() *rpcservice.Service {
 func (a *App) AccountsEndpoint() *rpcservice.Service {
 	return rpcservice.NewService(a.Logger).
 		WithIdentityProvider(idcontext.SetIdentity).
+		WithContextProvider(addIdentityLogFields).
 		AddMethod("get_user", a.GetUser, gojsonschema.NewStringLoader(`{
 			"type": "object",
 			"additionalProperties": false,
@@ -100,4 +104,20 @@ func (a *App) AccountsEndpoint() *rpcservice.Service {
 				}
 			}
 		}`))
+}
+
+func addIdentityLogFields(ctx context.Context) context.Context {
+	b := idcontext.GetIdentity(ctx)
+	reqLogger := logger.FromContext(ctx)
+
+	if reqLogger != nil {
+		if b.UserID != "" {
+			reqLogger.Update(reqLogger.Entry().WithField("user_id", b.UserID))
+		}
+		if b.AccountID != "" {
+			reqLogger.Update(reqLogger.Entry().WithField("account_id", b.AccountID))
+		}
+	}
+
+	return ctx
 }

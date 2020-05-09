@@ -3,9 +3,6 @@ package idcontext
 import (
 	"context"
 	"strings"
-
-	"github.com/g-wilson/runtime/logger"
-	"github.com/g-wilson/runtime/rpcservice"
 )
 
 type identityContextKey string
@@ -43,7 +40,7 @@ func GetIdentity(ctx context.Context) *Identity {
 }
 
 // SetIdentity adds the identity of the requester to the request context
-func SetIdentity(ctx context.Context, claims rpcservice.AccessTokenClaims) context.Context {
+func SetIdentity(ctx context.Context, claims map[string]interface{}) context.Context {
 	b := &Identity{}
 
 	if sub, ok := claims["sub"].(string); ok {
@@ -62,16 +59,6 @@ func SetIdentity(ctx context.Context, claims rpcservice.AccessTokenClaims) conte
 	}
 
 	ctx = context.WithValue(ctx, ctxkey, b)
-
-	reqLogger := logger.FromContext(ctx)
-	if reqLogger != nil {
-		if b.UserID != "" {
-			reqLogger.Update(reqLogger.Entry().WithField("user_id", b.UserID))
-		}
-		if b.AccountID != "" {
-			reqLogger.Update(reqLogger.Entry().WithField("account_id", b.AccountID))
-		}
-	}
 
 	return ctx
 }
