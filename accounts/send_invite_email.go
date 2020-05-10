@@ -89,3 +89,7 @@ func (a *App) createInviteEmail(toAddress, token string) (*ses.SendEmailInput, e
 		},
 	}, nil
 }
+
+func strPointer(str string) *string {
+	return &str
+}

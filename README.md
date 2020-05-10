@@ -35,19 +35,17 @@ It follows similar conventions to oAuth 2, but with some key differences:
 
 *-- example.com/api -[ HTTP API Gateway ]- /auth/{method+} ------> [ Auth Lambda - token endpoint etc ]
 
-*-- example.com/api -[ HTTP API Gateway ]- /accounts/{method+} --> [ JWT Authorizer ] --> [ Accounts Lambda - user management ]
-
 *-- example.com/api -[ HTTP API Gateway ]- /your-api-here -------> [ JWT Authorizer ] --> [ Your Lambda ]
 
 ```
 
-SEBA is one application with two entry points. Each entry point is hosted as a Lambda function and uses API Gateway's wildcard route matching (`{method+}`) to provide several endpoints with a simple setup.
+SEBA is hosted as a Lambda function and uses API Gateway's wildcard route matching (`{method+}`) to provide several endpoints with a simple setup.
 
-The first Lambda, Auth, is responsible for all endpoints which do not require an access token, for example, the token endpoint (`/authenticate`) and the endpoints required to initiate a "sign-in" flow (`/send_authentication_email`).
-
-The second Lambda, Accounts, provides basic endpoints for user management. It must be behind a JWT Authorizer in the API Gateway.
+It has two endpoints, the oAuth 2 token endpoint (`/authenticate`) and another endpoint used to initiate the "sign-in" flow (`/send_authentication_email`).
 
 The `openid-configuration` and `jwks.json` routes can return static files (examples included in this repo) which are necessary for configuring the JWT Authorizer in the HTTP API Gateway. The key file can be used to rotate the key used for access token signing.
+
+There is a second SEBA application which can be hosted as an additional Lambda, which provides some protected endpoints for basic user management. It must be behind a JWT Authorizer in the API Gateway. It is under development so not yet documented.
 
 ## Usage in your application
 
@@ -111,50 +109,6 @@ func main() {
 }
 ```
 
-#### Accounts service
-
-```go
-package main
-
-import (
-	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/g-wilson/runtime"
-	"github.com/g-wilson/seba/accounts"
-)
-
-func main() {
-	awsConfig := aws.NewConfig().WithRegion(os.Getenv("AWS_REGION"))
-	awsSession := session.Must(session.NewSession())
-
-	inviteEmailTemplate, err := template.New("invite").Parse(`You have been invite to join an account. Please click here to sign in: https://localhost:8080/invite?token={{.InviteToken}}`)
-	if err != nil {
-		return nil, fmt.Errorf("error compiling template: %w", err)
-	}
-
-	app, err := accounts.New(accounts.Config{
-		LogLevel:  os.Getenv("LOG_LEVEL"),
-		LogFormat: os.Getenv("LOG_FORMAT"),
-
-		AWSConfig:       awsConfig,
-		AWSSession:      awsSession,
-		DynamoTableName: os.Getenv("AUTH_DYNAMO_TABLE_NAME"),
-
-		ActuallySendEmails: (os.Getenv("ACTUALLY_SEND_EMAILS") == "true"),
-		EmailConfig: auth.EmailConfig{
-			DefaultFromAddress:  "auth@example.com",
-			DefaultReplyAddress: "security@example.com",
-			AuthnEmailSubject:   "Sign in link",
-			AuthnEmailTemplate:  authnEmailTemplate,
-		},
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	lambda.Start(runtime.WrapRPCHTTPGateway(app.RPC()))
-}
-```
-
 ### Request flow
 
 Here is the typical API exchange, which should feel familiar if you've used oAuth 2 before:
@@ -163,7 +117,7 @@ Here is the typical API exchange, which should feel familiar if you've used oAut
 - Client generates a random string to use for PKCE
 - Both strings are persisted
 
-**[auth]/send_authentication_email**
+**/send_authentication_email**
 
 Request:
 
@@ -185,7 +139,7 @@ Response: 204
 - The user must follow the URL to your application (e.g. a website or mobile app)
 - Client checks that the state parameter of the callback URL matches the persisted one
 
-**[auth]/authenticate**
+**/authenticate**
 
 Request:
 
@@ -257,11 +211,11 @@ The scope claim can be used for basic permissions checks. At the moment scopes a
 
 The identity token provides the `user_id` and `account_id` in the same way as the access token, but it additionally provides the email addresses verified by the user.
 
-### Other grant types
+### Refreshing the session
 
-#### `refresh_token`
+You can use the refresh token to generate new credentials at any time before the refresh token expires:
 
-**[auth]/authenticate**
+**/authenticate**
 
 Request:
 
@@ -269,51 +223,6 @@ Request:
 {
 	"grant_type": "refresh_token",
 	"code": "{ refresh token }",
-	"client_id": "your-client-id"
-}
-```
-
-Response: same as the `email_token` grant type.
-
-#### `invite_token`
-
-Additional users can be added to an account by creating an `invite` attached to an email address. When exchanged at the token endpoint, a new user is created under the account.
-
-**[accounts]/create_invite**
-
-Request:
-
-```json
-{
-	"email": "newuser@example.com",
-	"account_id": "your-account"
-}
-```
-
-- SEBA will only let you create an invite for an account which matches the account in the access token
-
-Response:
-
-```json
-{
-	"invite_id": "invite_c22babf6-803f-4be9-b1ba-19efe944990c"
-}
-```
-
-- The backend will generate the "magic link" callback URL and send it to the provided email
-
-`https://example.com/invite?code=${CODE}&state=${STATE}`
-
-- The user must follow the URL to your application (e.g. a website or mobile app)
-
-**[auth]/authenticate**
-
-Request:
-
-```json
-{
-	"grant_type": "invite_token",
-	"code": "{ invite token }",
 	"client_id": "your-client-id"
 }
 ```
