@@ -51,14 +51,14 @@ func main() {
 		AWSSession:      awsSession,
 		DynamoTableName: os.Getenv("SEBA_DYNAMO_TABLE_NAME"),
 
-		ActuallySendEmails: (os.Getenv("ACTUALLY_SEND_EMAILS") == "true"),
+		ActuallySendEmails: false,
 
 		JWTPrivateKey: os.Getenv("SEBA_PRIVATE_KEY"),
 		JWTIssuer:     os.Getenv("SEBA_ISSUER"),
 
 		Clients: []seba.Client{
 			seba.Client{
-				ID:                       "client_52842f21-d9fd-4201-b198-c5f0585cb3be",
+				ID:                       "client_example1",
 				EmailAuthenticationURL:   "https://localhost:8080/authenticate",
 				InviteConsumptionEnabled: true,
 				DefaultScopes:            []string{"api"},
@@ -77,8 +77,7 @@ func main() {
 		AWSSession:      awsSession,
 		DynamoTableName: os.Getenv("SEBA_DYNAMO_TABLE_NAME"),
 
-		ActuallySendEmails: (os.Getenv("ACTUALLY_SEND_EMAILS") == "true"),
-		InviteCallbackURL:  "https://localhost:8080/invite",
+		ActuallySendEmails: false,
 	})
 	if err != nil {
 		panic(err)

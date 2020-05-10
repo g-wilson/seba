@@ -1,16 +1,21 @@
 package auth
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net/url"
 
+	"github.com/aws/aws-sdk-go/service/ses"
 	"github.com/g-wilson/seba"
-	"github.com/g-wilson/seba/emails"
 	"github.com/g-wilson/seba/token"
 
 	"github.com/g-wilson/runtime/logger"
 )
+
+type authnEmailTemplateData struct {
+	LinkURL string
+}
 
 func (a *App) SendAuthenticationEmail(ctx context.Context, req *seba.SendAuthenticationEmailRequest) error {
 	client, ok := a.clientsByID[req.ClientID]
@@ -36,7 +41,7 @@ func (a *App) SendAuthenticationEmail(ctx context.Context, req *seba.SendAuthent
 
 	a.Logger.Debugf("link_url: %s", linkURL)
 
-	email, err := emails.NewAuthenticationEmail(req.Email, linkURL)
+	email, err := a.createAuthenticationEmail(req.Email, linkURL)
 	if err != nil {
 		logger.FromContext(ctx).Entry().
 			WithError(err).
@@ -56,4 +61,36 @@ func (a *App) SendAuthenticationEmail(ctx context.Context, req *seba.SendAuthent
 	}
 
 	return nil
+}
+
+func (a *App) createAuthenticationEmail(toAddress, linkURL string) (*ses.SendEmailInput, error) {
+	var output bytes.Buffer
+	err := a.emailConfig.AuthnEmailTemplate.Execute(&output, authnEmailTemplateData{linkURL})
+	if err != nil {
+		return nil, err
+	}
+
+	outputStr := output.String()
+
+	return &ses.SendEmailInput{
+		Destination:      &ses.Destination{ToAddresses: []*string{&toAddress}},
+		ReplyToAddresses: []*string{&a.emailConfig.DefaultReplyAddress},
+		Source:           &a.emailConfig.DefaultFromAddress,
+		Message: &ses.Message{
+			Subject: &ses.Content{
+				Charset: strPointer("UTF-8"),
+				Data:    &a.emailConfig.AuthnEmailSubject,
+			},
+			Body: &ses.Body{
+				Html: &ses.Content{
+					Charset: strPointer("UTF-8"),
+					Data:    &outputStr,
+				},
+				Text: &ses.Content{
+					Charset: strPointer("UTF-8"),
+					Data:    &outputStr,
+				},
+			},
+		},
+	}, nil
 }

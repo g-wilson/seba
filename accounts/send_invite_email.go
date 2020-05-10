@@ -1,16 +1,20 @@
 package accounts
 
 import (
+	"bytes"
 	"context"
-	"fmt"
 
 	"github.com/g-wilson/seba"
-	"github.com/g-wilson/seba/emails"
 	"github.com/g-wilson/seba/idcontext"
 	"github.com/g-wilson/seba/token"
 
+	"github.com/aws/aws-sdk-go/service/ses"
 	"github.com/g-wilson/runtime/logger"
 )
+
+type inviteEmailTemplateData struct {
+	InviteToken string
+}
 
 func (a *App) SendInviteEmail(ctx context.Context, req *seba.SendInviteEmailRequest) (*seba.SendInviteEmailResponse, error) {
 	bearer := idcontext.GetIdentity(ctx)
@@ -30,8 +34,7 @@ func (a *App) SendInviteEmail(ctx context.Context, req *seba.SendInviteEmailRequ
 
 	a.Logger.Debugf("invite_token: %s", invTok)
 
-	linkURL := fmt.Sprintf("%s?code=%s", a.inviteCallbackURL, invTok)
-	email, err := emails.NewInviteEmail(req.Email, linkURL)
+	email, err := a.createInviteEmail(req.Email, invTok)
 	if err != nil {
 		logger.FromContext(ctx).Entry().
 			WithError(err).
@@ -53,4 +56,36 @@ func (a *App) SendInviteEmail(ctx context.Context, req *seba.SendInviteEmailRequ
 	}
 
 	return &seba.SendInviteEmailResponse{InviteID: invite.ID}, nil
+}
+
+func (a *App) createInviteEmail(toAddress, token string) (*ses.SendEmailInput, error) {
+	var output bytes.Buffer
+	err := a.emailConfig.InviteEmailTemplate.Execute(&output, inviteEmailTemplateData{token})
+	if err != nil {
+		return nil, err
+	}
+
+	outputStr := output.String()
+
+	return &ses.SendEmailInput{
+		Destination:      &ses.Destination{ToAddresses: []*string{&toAddress}},
+		ReplyToAddresses: []*string{&a.emailConfig.DefaultReplyAddress},
+		Source:           &a.emailConfig.DefaultFromAddress,
+		Message: &ses.Message{
+			Subject: &ses.Content{
+				Charset: strPointer("UTF-8"),
+				Data:    &a.emailConfig.InviteEmailSubject,
+			},
+			Body: &ses.Body{
+				Html: &ses.Content{
+					Charset: strPointer("UTF-8"),
+					Data:    &outputStr,
+				},
+				Text: &ses.Content{
+					Charset: strPointer("UTF-8"),
+					Data:    &outputStr,
+				},
+			},
+		},
+	}, nil
 }

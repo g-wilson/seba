@@ -3,6 +3,7 @@ package auth
 import (
 	"errors"
 	"fmt"
+	"html/template"
 
 	"github.com/g-wilson/seba"
 	"github.com/g-wilson/seba/storage"
@@ -25,11 +26,26 @@ type Config struct {
 	DynamoTableName string
 
 	ActuallySendEmails bool
+	EmailConfig        EmailConfig
 
 	JWTPrivateKey string
 	JWTIssuer     string
 
 	Clients []seba.Client
+}
+
+// EmailConfig type is a group of settings for emails
+type EmailConfig struct {
+	DefaultReplyAddress string
+	DefaultFromAddress  string
+
+	AuthnEmailSubject  string
+	AuthnEmailTemplate *template.Template
+}
+
+type jwtConfig struct {
+	Issuer string
+	Signer jose.Signer
 }
 
 // App holds dependencies and has methods implementing business logic
@@ -40,14 +56,10 @@ type App struct {
 	jwtConfig          *jwtConfig
 	actuallySendEmails bool
 	ses                *ses.SES
+	emailConfig        EmailConfig
 
 	clients     []seba.Client
 	clientsByID map[string]seba.Client
-}
-
-type jwtConfig struct {
-	Issuer string
-	Signer jose.Signer
 }
 
 // New creates a new SEBA auth service app instance
@@ -66,6 +78,7 @@ func New(cfg Config) (*App, error) {
 		jwtConfig:          jwtConfig,
 		ses:                ses.New(cfg.AWSSession),
 		actuallySendEmails: cfg.ActuallySendEmails,
+		emailConfig:        cfg.EmailConfig,
 
 		clients:     cfg.Clients,
 		clientsByID: arrangeClients(cfg.Clients),

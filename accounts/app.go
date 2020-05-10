@@ -1,6 +1,8 @@
 package accounts
 
 import (
+	"html/template"
+
 	"github.com/g-wilson/seba/storage"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -20,13 +22,23 @@ type Config struct {
 	DynamoTableName string
 
 	ActuallySendEmails bool
-	InviteCallbackURL  string
+	EmailConfig        EmailConfig
+}
+
+// EmailConfig type is a group of settings for emails
+type EmailConfig struct {
+	DefaultReplyAddress string
+	DefaultFromAddress  string
+
+	InviteEmailSubject  string
+	InviteEmailTemplate *template.Template
 }
 
 // App holds dependencies and has methods implementing business logic
 type App struct {
-	Logger  *logrus.Entry
-	Storage storage.Storage
+	Logger      *logrus.Entry
+	Storage     storage.Storage
+	emailConfig EmailConfig
 
 	actuallySendEmails bool
 	inviteCallbackURL  string
@@ -43,7 +55,7 @@ func New(cfg Config) (*App, error) {
 
 		ses:                ses.New(cfg.AWSSession),
 		actuallySendEmails: cfg.ActuallySendEmails,
-		inviteCallbackURL:  cfg.InviteCallbackURL,
+		emailConfig:        cfg.EmailConfig,
 	}
 
 	return app, nil

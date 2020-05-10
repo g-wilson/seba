@@ -70,6 +70,11 @@ func main() {
 	awsConfig := aws.NewConfig().WithRegion(os.Getenv("AWS_REGION"))
 	awsSession := session.Must(session.NewSession())
 
+	authnEmailTemplate, err := template.New("authn").Parse(`Sign in by clicking this link: {{.LinkURL}}`)
+	if err != nil {
+		return nil, fmt.Errorf("error compiling template: %w", err)
+	}
+
 	app, err := auth.New(auth.Config{
 		LogLevel:  os.Getenv("LOG_LEVEL"),
 		LogFormat: os.Getenv("LOG_FORMAT"),
@@ -79,6 +84,12 @@ func main() {
 		DynamoTableName: os.Getenv("AUTH_DYNAMO_TABLE_NAME"),
 
 		ActuallySendEmails: (os.Getenv("ACTUALLY_SEND_EMAILS") == "true"),
+		EmailConfig: auth.EmailConfig{
+			DefaultFromAddress:  "auth@example.com",
+			DefaultReplyAddress: "security@example.com",
+			AuthnEmailSubject:   "Sign in link",
+			AuthnEmailTemplate:  authnEmailTemplate,
+		},
 
 		JWTPrivateKey: os.Getenv("AUTH_PRIVATE_KEY"),
 		JWTIssuer:     os.Getenv("AUTH_ISSUER"),
@@ -115,6 +126,11 @@ func main() {
 	awsConfig := aws.NewConfig().WithRegion(os.Getenv("AWS_REGION"))
 	awsSession := session.Must(session.NewSession())
 
+	inviteEmailTemplate, err := template.New("invite").Parse(`You have been invite to join an account. Please click here to sign in: https://localhost:8080/invite?token={{.InviteToken}}`)
+	if err != nil {
+		return nil, fmt.Errorf("error compiling template: %w", err)
+	}
+
 	app, err := accounts.New(accounts.Config{
 		LogLevel:  os.Getenv("LOG_LEVEL"),
 		LogFormat: os.Getenv("LOG_FORMAT"),
@@ -123,8 +139,13 @@ func main() {
 		AWSSession:      awsSession,
 		DynamoTableName: os.Getenv("AUTH_DYNAMO_TABLE_NAME"),
 
-    ActuallySendEmails: (os.Getenv("ACTUALLY_SEND_EMAILS") == "true"),
-    InviteCallbackURL:  "https://localhost:8080/invite",
+		ActuallySendEmails: (os.Getenv("ACTUALLY_SEND_EMAILS") == "true"),
+		EmailConfig: auth.EmailConfig{
+			DefaultFromAddress:  "auth@example.com",
+			DefaultReplyAddress: "security@example.com",
+			AuthnEmailSubject:   "Sign in link",
+			AuthnEmailTemplate:  authnEmailTemplate,
+		},
 	})
 	if err != nil {
 		panic(err)
@@ -228,7 +249,7 @@ The scope claim can be used for basic permissions checks. At the moment scopes a
   ],
   "exp": 1588957867,
   "iat": 1588954267,
-  "iss": "https://identity.0xf09f8dba.com",
+  "iss": "https://example.com",
   "nbf": 1588954267,
   "sub": "user_a71ce329-e1d9-4993-8525-f26bbecc448c"
 }
