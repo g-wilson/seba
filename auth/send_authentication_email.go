@@ -1,4 +1,4 @@
-package app
+package auth
 
 import (
 	"context"
@@ -7,19 +7,20 @@ import (
 
 	"github.com/g-wilson/seba"
 	"github.com/g-wilson/seba/emails"
+	"github.com/g-wilson/seba/token"
 
 	"github.com/g-wilson/runtime/logger"
 )
 
 func (a *App) SendAuthenticationEmail(ctx context.Context, req *seba.SendAuthenticationEmailRequest) error {
-	client, ok := clientsByID[req.ClientID]
+	client, ok := a.clientsByID[req.ClientID]
 	if !ok {
 		return seba.ErrClientNotFound
 	}
 
 	// TODO: revoke all unverified authentications for the same email
 
-	emailToken, err := GenerateToken(32)
+	emailToken, err := token.GenerateToken(32)
 	if err != nil {
 		return err
 	}

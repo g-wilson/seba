@@ -53,7 +53,88 @@ The `openid-configuration` and `jwks.json` routes can return static files (examp
 
 You will need to provision SEBA with your JWT private key, and a list of clients. Clients provide a callback URL which is used to generate the "magic link" SEBA sends to the user's email address. Here you can configure the TTL of access tokens and refresh tokens, and you can set the default `scope` claim.
 
-TODO: Example code for setting up the SEBA Lambdas
+### Example Lambdas
+
+#### Auth service
+
+```go
+package main
+
+import (
+	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/g-wilson/runtime"
+	"github.com/g-wilson/seba/auth"
+)
+
+func main() {
+	awsConfig := aws.NewConfig().WithRegion(os.Getenv("AWS_REGION"))
+	awsSession := session.Must(session.NewSession())
+
+	app, err := auth.New(auth.Config{
+		LogLevel:  os.Getenv("LOG_LEVEL"),
+		LogFormat: os.Getenv("LOG_FORMAT"),
+
+		AWSConfig:       awsConfig,
+		AWSSession:      awsSession,
+		DynamoTableName: os.Getenv("AUTH_DYNAMO_TABLE_NAME"),
+
+		ActuallySendEmails: (os.Getenv("ACTUALLY_SEND_EMAILS") == "true"),
+
+		JWTPrivateKey: os.Getenv("AUTH_PRIVATE_KEY"),
+		JWTIssuer:     os.Getenv("AUTH_ISSUER"),
+
+		Clients: []seba.Client{
+			seba.Client{
+				ID:                       "your-client-id",
+				EmailAuthenticationURL:   "https://localhost:8080/authenticate",
+				InviteConsumptionEnabled: true,
+				DefaultScopes:            []string{"api"},
+			},
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	lambda.Start(runtime.WrapRPCHTTPGateway(app.RPC()))
+}
+```
+
+#### Accounts service
+
+```go
+package main
+
+import (
+	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/g-wilson/runtime"
+	"github.com/g-wilson/seba/accounts"
+)
+
+func main() {
+	awsConfig := aws.NewConfig().WithRegion(os.Getenv("AWS_REGION"))
+	awsSession := session.Must(session.NewSession())
+
+	app, err := accounts.New(accounts.Config{
+		LogLevel:  os.Getenv("LOG_LEVEL"),
+		LogFormat: os.Getenv("LOG_FORMAT"),
+
+		AWSConfig:       awsConfig,
+		AWSSession:      awsSession,
+		DynamoTableName: os.Getenv("AUTH_DYNAMO_TABLE_NAME"),
+
+    ActuallySendEmails: (os.Getenv("ACTUALLY_SEND_EMAILS") == "true"),
+    InviteCallbackURL:  "https://localhost:8080/invite",
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	lambda.Start(runtime.WrapRPCHTTPGateway(app.RPC()))
+}
+```
+
+### Request flow
 
 Here is the typical API exchange, which should feel familiar if you've used oAuth 2 before:
 

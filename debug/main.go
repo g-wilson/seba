@@ -5,8 +5,11 @@ import (
 	"os"
 
 	"github.com/g-wilson/seba"
-	"github.com/g-wilson/seba/app"
+	"github.com/g-wilson/seba/accounts"
+	"github.com/g-wilson/seba/auth"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/g-wilson/runtime/devserver"
 	"github.com/joho/godotenv"
 	"gopkg.in/square/go-jose.v2"
@@ -37,19 +40,54 @@ func main() {
 	authenticator := devserver.NewAuthenticator(keyset, os.Getenv("SEBA_ISSUER"))
 	server := devserver.New(listenAddr)
 
-	appInstance, err := app.New()
-	if err != nil {
-		panic(err)
-	}
-	err = appInstance.Storage.Setup()
+	awsConfig := aws.NewConfig().WithRegion(os.Getenv("AWS_REGION"))
+	awsSession := session.Must(session.NewSession())
+
+	authApp, err := auth.New(auth.Config{
+		LogLevel:  os.Getenv("LOG_LEVEL"),
+		LogFormat: os.Getenv("LOG_FORMAT"),
+
+		AWSConfig:       awsConfig,
+		AWSSession:      awsSession,
+		DynamoTableName: os.Getenv("SEBA_DYNAMO_TABLE_NAME"),
+
+		ActuallySendEmails: (os.Getenv("ACTUALLY_SEND_EMAILS") == "true"),
+
+		JWTPrivateKey: os.Getenv("SEBA_PRIVATE_KEY"),
+		JWTIssuer:     os.Getenv("SEBA_ISSUER"),
+
+		Clients: []seba.Client{
+			seba.Client{
+				ID:                       "client_52842f21-d9fd-4201-b198-c5f0585cb3be",
+				EmailAuthenticationURL:   "https://localhost:8080/authenticate",
+				InviteConsumptionEnabled: true,
+				DefaultScopes:            []string{"api"},
+			},
+		},
+	})
 	if err != nil {
 		panic(err)
 	}
 
-	server.AddService("auth", appInstance.AuthEndpoint(), nil)
-	server.AddService("accounts", appInstance.AccountsEndpoint(), authenticator)
+	accountsApp, err := accounts.New(accounts.Config{
+		LogLevel:  os.Getenv("LOG_LEVEL"),
+		LogFormat: os.Getenv("LOG_FORMAT"),
 
-	tok, _ := appInstance.CreateClientAccessToken("debug", []string{seba.ScopeSebaAdmin})
+		AWSConfig:       awsConfig,
+		AWSSession:      awsSession,
+		DynamoTableName: os.Getenv("SEBA_DYNAMO_TABLE_NAME"),
+
+		ActuallySendEmails: (os.Getenv("ACTUALLY_SEND_EMAILS") == "true"),
+		InviteCallbackURL:  "https://localhost:8080/invite",
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	server.AddService("auth", authApp.RPC(), nil)
+	server.AddService("accounts", accountsApp.RPC(), authenticator)
+
+	tok, _ := authApp.CreateClientAccessToken("debug", []string{seba.ScopeSebaAdmin})
 	server.Log.Infof("client access token: %s", tok)
 
 	server.Listen()

@@ -14,6 +14,8 @@ const (
 	GrantTypeEmailToken   = "email_token"
 	GrantTypeInviteToken  = "invite_token"
 	GrantTypeRefreshToken = "refresh_token"
+
+	APIGatewayClient = "client_awsapigateway"
 )
 
 var (
@@ -33,6 +35,13 @@ var (
 	ErrInviteExpired        = hand.New("invite_expired")
 	ErrUserAlreadyExists    = hand.New("user_already_exists")
 )
+
+type Client struct {
+	ID                       string
+	InviteConsumptionEnabled bool
+	EmailAuthenticationURL   string
+	DefaultScopes            []string
+}
 
 type Credentials struct {
 	AccessToken  string `json:"access_token"`

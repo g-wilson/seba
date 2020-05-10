@@ -1,4 +1,4 @@
-package app
+package auth
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 )
 
 func (a *App) Authenticate(ctx context.Context, req *seba.AuthenticateRequest) (res *seba.AuthenticateResponse, err error) {
-	client, ok := clientsByID[req.ClientID]
+	client, ok := a.clientsByID[req.ClientID]
 	if !ok {
 		return nil, seba.ErrClientNotFound
 	}
@@ -36,7 +36,7 @@ func (a *App) Authenticate(ctx context.Context, req *seba.AuthenticateRequest) (
 	return &seba.AuthenticateResponse{Credentials: creds}, nil
 }
 
-func (a *App) useEmailToken(ctx context.Context, token string, client Client, verifier *string) (creds *seba.Credentials, err error) {
+func (a *App) useEmailToken(ctx context.Context, token string, client seba.Client, verifier *string) (creds *seba.Credentials, err error) {
 	if verifier == nil {
 		return nil, seba.ErrPKCEVerifierRequired
 	}
@@ -84,7 +84,7 @@ func (a *App) useEmailToken(ctx context.Context, token string, client Client, ve
 	return
 }
 
-func (a *App) useRefreshToken(ctx context.Context, token string, client Client) (*seba.Credentials, error) {
+func (a *App) useRefreshToken(ctx context.Context, token string, client seba.Client) (*seba.Credentials, error) {
 	rt, err := a.Storage.GetRefreshTokenByHashedToken(ctx, sha256Hex(token))
 	if err != nil {
 		return nil, err
@@ -116,7 +116,7 @@ func (a *App) useRefreshToken(ctx context.Context, token string, client Client) 
 	return creds, nil
 }
 
-func (a *App) useInviteToken(ctx context.Context, token string, client Client) (*seba.Credentials, error) {
+func (a *App) useInviteToken(ctx context.Context, token string, client seba.Client) (*seba.Credentials, error) {
 	if !client.InviteConsumptionEnabled {
 		return nil, seba.ErrNotSupportedByClient
 	}

@@ -1,4 +1,4 @@
-package app
+package auth
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 
 	"github.com/g-wilson/seba"
 	"github.com/g-wilson/seba/storage"
+	"github.com/g-wilson/seba/token"
 
 	"gopkg.in/square/go-jose.v2/jwt"
 )
@@ -26,8 +27,8 @@ type IDTokenClaims struct {
 	jwt.Claims
 }
 
-func (a *App) CreateCredentials(ctx context.Context, user *storage.User, client Client, authnID *string) (creds *seba.Credentials, err error) {
-	refreshToken, err := GenerateToken(32)
+func (a *App) CreateCredentials(ctx context.Context, user *storage.User, client seba.Client, authnID *string) (creds *seba.Credentials, err error) {
+	refreshToken, err := token.GenerateToken(32)
 	if err != nil {
 		return
 	}
@@ -42,7 +43,7 @@ func (a *App) CreateCredentials(ctx context.Context, user *storage.User, client 
 	basicClaims := jwt.Claims{
 		Subject:   user.ID,
 		Issuer:    a.jwtConfig.Issuer,
-		Audience:  jwt.Audience{apiGatewayClient},
+		Audience:  jwt.Audience{seba.APIGatewayClient},
 		Expiry:    jwt.NewNumericDate(time.Now().UTC().Add(60 * time.Minute)),
 		IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
 		NotBefore: jwt.NewNumericDate(time.Now().UTC()),
@@ -92,7 +93,7 @@ func (a *App) CreateClientAccessToken(subject string, scopes []string) (string, 
 	basicClaims := jwt.Claims{
 		Subject:   subject,
 		Issuer:    a.jwtConfig.Issuer,
-		Audience:  jwt.Audience{apiGatewayClient},
+		Audience:  jwt.Audience{seba.APIGatewayClient},
 		Expiry:    jwt.NewNumericDate(time.Now().UTC().Add(86400 * 365 * time.Second)),
 		IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
 		NotBefore: jwt.NewNumericDate(time.Now().UTC()),

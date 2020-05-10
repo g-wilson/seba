@@ -1,10 +1,14 @@
-package app
+package token
 
 import (
 	"crypto/rand"
 	"fmt"
 	"io"
 )
+
+func init() {
+	assertAvailablePRNG()
+}
 
 func assertAvailablePRNG() {
 	// Assert that a cryptographically secure PRNG is available.

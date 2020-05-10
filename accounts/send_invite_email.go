@@ -1,4 +1,4 @@
-package app
+package accounts
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"github.com/g-wilson/seba"
 	"github.com/g-wilson/seba/emails"
 	"github.com/g-wilson/seba/idcontext"
+	"github.com/g-wilson/seba/token"
 
 	"github.com/g-wilson/runtime/logger"
 )
@@ -17,7 +18,7 @@ func (a *App) SendInviteEmail(ctx context.Context, req *seba.SendInviteEmailRequ
 		return nil, seba.ErrAccessDenied
 	}
 
-	invTok, err := GenerateToken(32)
+	invTok, err := token.GenerateToken(32)
 	if err != nil {
 		return nil, err
 	}
@@ -29,7 +30,7 @@ func (a *App) SendInviteEmail(ctx context.Context, req *seba.SendInviteEmailRequ
 
 	a.Logger.Debugf("invite_token: %s", invTok)
 
-	linkURL := fmt.Sprintf("%s?code=%s", InviteCallbackURL, invTok)
+	linkURL := fmt.Sprintf("%s?code=%s", a.inviteCallbackURL, invTok)
 	email, err := emails.NewInviteEmail(req.Email, linkURL)
 	if err != nil {
 		logger.FromContext(ctx).Entry().
