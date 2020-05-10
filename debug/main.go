@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"html/template"
 	"log"
 	"os"
 
@@ -14,6 +16,9 @@ import (
 	"github.com/joho/godotenv"
 	"gopkg.in/square/go-jose.v2"
 )
+
+var authnTemplateContents = `Sign in by clicking this link: {{.LinkURL}}`
+var inviteTemplateContents = `You have been invite to join an account. Please click here to sign in: https://localhost:8080/invite?token={{.InviteToken}}`
 
 func init() {
 	err := godotenv.Load()
@@ -43,6 +48,11 @@ func main() {
 	awsConfig := aws.NewConfig().WithRegion(os.Getenv("AWS_REGION"))
 	awsSession := session.Must(session.NewSession())
 
+	authnEmailTemplate, err := template.New("authn").Parse(authnTemplateContents)
+	if err != nil {
+		panic(fmt.Errorf("error compiling template: %w", err))
+	}
+
 	authApp, err := auth.New(auth.Config{
 		LogLevel:  os.Getenv("LOG_LEVEL"),
 		LogFormat: os.Getenv("LOG_FORMAT"),
@@ -52,6 +62,12 @@ func main() {
 		DynamoTableName: os.Getenv("SEBA_DYNAMO_TABLE_NAME"),
 
 		ActuallySendEmails: false,
+		EmailConfig: auth.EmailConfig{
+			DefaultFromAddress:  "auth@example.com",
+			DefaultReplyAddress: "security@example.com",
+			AuthnEmailSubject:   "Sign in link",
+			AuthnEmailTemplate:  authnEmailTemplate,
+		},
 
 		JWTPrivateKey: os.Getenv("SEBA_PRIVATE_KEY"),
 		JWTIssuer:     os.Getenv("SEBA_ISSUER"),
@@ -69,6 +85,11 @@ func main() {
 		panic(err)
 	}
 
+	inviteEmailTemplate, err := template.New("invite").Parse(inviteTemplateContents)
+	if err != nil {
+		panic(fmt.Errorf("error compiling template: %w", err))
+	}
+
 	accountsApp, err := accounts.New(accounts.Config{
 		LogLevel:  os.Getenv("LOG_LEVEL"),
 		LogFormat: os.Getenv("LOG_FORMAT"),
@@ -78,6 +99,12 @@ func main() {
 		DynamoTableName: os.Getenv("SEBA_DYNAMO_TABLE_NAME"),
 
 		ActuallySendEmails: false,
+		EmailConfig: accounts.EmailConfig{
+			DefaultFromAddress:  "auth@example.com",
+			DefaultReplyAddress: "security@example.com",
+			InviteEmailSubject:  "Join",
+			InviteEmailTemplate: inviteEmailTemplate,
+		},
 	})
 	if err != nil {
 		panic(err)

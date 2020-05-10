@@ -5,11 +5,13 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"time"
 
-	"github.com/aws/aws-sdk-go/service/ses"
 	"github.com/g-wilson/seba"
 	"github.com/g-wilson/seba/token"
 
+	"github.com/aws/aws-sdk-go/service/ses"
+	"github.com/g-wilson/runtime/ctxtools"
 	"github.com/g-wilson/runtime/logger"
 )
 
@@ -23,7 +25,21 @@ func (a *App) SendAuthenticationEmail(ctx context.Context, req *seba.SendAuthent
 		return seba.ErrClientNotFound
 	}
 
-	// TODO: revoke all unverified authentications for the same email
+	// revoke any authentications which have not been used or have not already been revoked
+	authns, err := a.Storage.ListPendingAuthentications(ctx, req.Email)
+	if err != nil {
+		return err
+	}
+	ctxtools.ForkWithTimeout(ctx, 10*time.Second, func(ctx context.Context) error {
+		for _, an := range authns {
+			err = a.Storage.SetAuthenticationRevoked(ctx, an.ID, req.Email)
+			if err != nil {
+				return fmt.Errorf("revoke authn failed: %w", err)
+			}
+		}
+
+		return nil
+	})
 
 	emailToken, err := token.GenerateToken(32)
 	if err != nil {

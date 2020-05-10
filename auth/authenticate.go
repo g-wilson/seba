@@ -54,6 +54,9 @@ func (a *App) useEmailToken(ctx context.Context, token string, client seba.Clien
 	if authn.VerifiedAt != nil {
 		return nil, seba.ErrAuthnAlreadyVerified
 	}
+	if authn.RevokedAt != nil {
+		return nil, seba.ErrAuthnRevoked
+	}
 
 	challengeBytes, err := base64.StdEncoding.DecodeString(authn.PKCEChallenge)
 	if err != nil {

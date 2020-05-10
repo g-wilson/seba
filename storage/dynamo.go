@@ -136,6 +136,20 @@ func (s *DynamoStorage) SetAuthenticationRevoked(ctx context.Context, authentica
 	return
 }
 
+func (s *DynamoStorage) ListPendingAuthentications(ctx context.Context, email string) (authns []Authentication, err error) {
+	authns = []Authentication{}
+
+	err = s.db.Table(s.table).
+		Get("relation", email).
+		Index("relationLookup").
+		Range("id", dynamo.BeginsWith, TypePrefixAuthentication).
+		Filter("attribute_not_exists(verified_at)").
+		Filter("attribute_not_exists(revoked_at)").
+		AllWithContext(ctx, &authns)
+
+	return
+}
+
 func (s *DynamoStorage) CreateRefreshToken(ctx context.Context, userID, clientID, hashedToken string, authnID *string) (ent *RefreshToken, err error) {
 	timestamp := time.Now().UTC()
 

@@ -31,6 +31,7 @@ var (
 	ErrClientIDMismatch     = hand.New("client_id_mismatch")
 	ErrAuthnExpired         = hand.New("authn_expired")
 	ErrAuthnAlreadyVerified = hand.New("authn_already_verified")
+	ErrAuthnRevoked         = hand.New("authn_revoked")
 	ErrRefreshTokenUsed     = hand.New("refresh_token_already_used")
 	ErrInviteExpired        = hand.New("invite_expired")
 	ErrUserAlreadyExists    = hand.New("user_already_exists")
