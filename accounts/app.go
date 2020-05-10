@@ -1,6 +1,7 @@
 package accounts
 
 import (
+	"errors"
 	"html/template"
 
 	"github.com/g-wilson/seba/storage"
@@ -48,6 +49,10 @@ type App struct {
 // New creates a new accounts app instance
 func New(cfg Config) (*App, error) {
 	appLogger := logger.Create("seba-accounts", cfg.LogFormat, cfg.LogLevel)
+
+	if cfg.EmailConfig.InviteEmailTemplate == nil {
+		return nil, errors.New("you must provide an email template")
+	}
 
 	app := &App{
 		Logger:  appLogger,

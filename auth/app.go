@@ -71,6 +71,10 @@ func New(cfg Config) (*App, error) {
 		return nil, err
 	}
 
+	if cfg.EmailConfig.AuthnEmailTemplate == nil {
+		return nil, errors.New("you must provide an email template")
+	}
+
 	app := &App{
 		Logger:  appLogger,
 		Storage: storage.NewDynamoStorage(cfg.AWSSession, cfg.AWSConfig, cfg.DynamoTableName),
