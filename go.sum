@@ -10,10 +10,10 @@ github.com/cpuguy83/go-md2man/v2 v2.0.0-20190314233015-f79a8a8ca69d/go.mod h1:ma
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/dgrijalva/jwt-go v3.2.0+incompatible/go.mod h1:E3ru+11k8xSBh+hMPgOLZmtrrCbhqsmaPHjLKYnJCaQ=
-github.com/g-wilson/runtime v0.0.0-20200508155841-332ec5035141 h1:Mjq0xAY3jePNHW0ADp5r3o8S5mic01hmKgWKyK0lVJw=
-github.com/g-wilson/runtime v0.0.0-20200508155841-332ec5035141/go.mod h1:TZ6eszWGXyb3j8oxSh9rX/DCX3AEBX8us824LA2FfRo=
-github.com/g-wilson/runtime v0.0.0-20200510162038-428de80e947f h1:Dv6xew7fZvPSyYvf84hOOJGeas5P73xU8QaQt2oGGrs=
-github.com/g-wilson/runtime v0.0.0-20200510162038-428de80e947f/go.mod h1:TZ6eszWGXyb3j8oxSh9rX/DCX3AEBX8us824LA2FfRo=
+github.com/g-wilson/runtime v0.0.0-20200510164823-24f47df026d3 h1:R2T5TLi2yPQPcegl8+j2cVr1f1eLcDrQkrLRmtjQAKQ=
+github.com/g-wilson/runtime v0.0.0-20200510164823-24f47df026d3/go.mod h1:TZ6eszWGXyb3j8oxSh9rX/DCX3AEBX8us824LA2FfRo=
+github.com/g-wilson/runtime v0.0.0-20200510182400-f666e4708c38 h1:Q+V4FzDx7c24S8l2UC90dBu8qBv4N9MPGW2ViaX5gv4=
+github.com/g-wilson/runtime v0.0.0-20200510182400-f666e4708c38/go.mod h1:TZ6eszWGXyb3j8oxSh9rX/DCX3AEBX8us824LA2FfRo=
 github.com/go-chi/chi v4.1.0+incompatible h1:ETj3cggsVIY2Xao5ExCu6YhEh5MD6JTfcBzS37R260w=
 github.com/go-chi/chi v4.1.0+incompatible/go.mod h1:eB3wogJHnLi3x/kFX2A+IbTBlXxmMeXJVKy9tTv1XzQ=
 github.com/go-sql-driver/mysql v1.5.0/go.mod h1:DCzpHaOWr8IXmIStZouvnhqoel9Qv2LBy8hT2VhHyBg=
