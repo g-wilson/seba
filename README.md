@@ -25,13 +25,13 @@ SEBA issues JWT access tokens for your application. It is specifically designed 
 ## Infrastructure setup
 
 ```
-*-- example.com/.well-known/openid-configuration ----------------> [ oauth issuer details ]
+*-- example.com/.well-known/openid-configuration -------------> [ oauth issuer details ]
 
-*-- example.com/.well-known/jwks.json ---------------------------> [ jwt public keys ]
+*-- example.com/.well-known/jwks.json ------------------------> [ jwt public keys ]
 
-*-- example.com/api -[ HTTP API Gateway ]- /auth/{method+} ------> [ Auth Lambda - token endpoint etc ]
+*-- example.com/api -[ HTTP API Gateway ]- /auth/{method+} ---> [ SEBA Lambda ]-[ DynamoDB ]
 
-*-- example.com/api -[ HTTP API Gateway ]- /your-api-here -------> [ JWT Authorizer ] --> [ Your Lambda ]
+*-- example.com/api -[ HTTP API Gateway ]- /your-api-here ----> [ JWT Authorizer ] --> [ Your Lambda ]
 
 ```
 
