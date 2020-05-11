@@ -10,21 +10,17 @@ This is primarily an exercise for me to build something real with an entirely se
 
 -------
 
-SEBA issues JWT access tokens for your application. It is specifically designed to be run on AWS Lambda using an HTTP API Gateway for invocation, so that you can take advantage of the provided JWT Authorizer.
-
-The goal of SEBA is to provide a simple, sensible way to authenticate a user by using an email account as an identity. It is not concerned with granting scoped permissions to a variety of clients. oAuth 2 is followed in the API design because of its ubiquity - it is a mature protocol and therefore a solid foundation to implement token based security for modern apps.
-
 SEBA is an opinionated service designed specifically for common mobile or JS web applications.
 
-It follows similar conventions to oAuth 2, but with some key differences:
+The goal of SEBA is to provide a simple, sensible way to authenticate a user by using an email account as an identity. It is not concerned with granting scoped permissions to a variety of clients.
 
-- No Authorization Server or "single-sign-on" style website responsible for authentication and managing the granting of permissions. SEBA provides identity authentication using email verification.
+Email identity can be verified in 3 ways:
 
-- oAuth specifies that request bodies must be encoded with `application/x-www-urlencoded`, however I believe it's more common for new projects to use an entirely JSON-based API, so using JSON consistently is easier.
+- Sending a token in an email to an email address (i.e. "magic link")
+- Google sign in authorization code
+- Apple ID sign in authorization code (coming soon)
 
-- The PKCE (proof key for code exchange) oAuth extension is used as a fundamental security element to make sure the emails are only valid with the correct client session.
-
-- Scope parameter is not used on the token endpoint. This feature is specific to scenarios where the end-user chooses what permissions they want to grant to the clients. Since SEBA is not concerned with authorization at all, it has been left... out of scope.
+SEBA issues JWT access tokens for your application. It is specifically designed to be run on AWS Lambda using an HTTP API Gateway for invocation, so that you can take advantage of the provided JWT Authorizer.
 
 ## Infrastructure setup
 
@@ -41,8 +37,6 @@ It follows similar conventions to oAuth 2, but with some key differences:
 
 SEBA is hosted as a Lambda function and uses API Gateway's wildcard route matching (`{method+}`) to provide several endpoints with a simple setup.
 
-It has two endpoints, the oAuth 2 token endpoint (`/authenticate`) and another endpoint used to initiate the "sign-in" flow (`/send_authentication_email`).
-
 The `openid-configuration` and `jwks.json` routes can return static files (examples included in this repo) which are necessary for configuring the JWT Authorizer in the HTTP API Gateway. The key file can be used to rotate the key used for access token signing.
 
 There is a second SEBA application which can be hosted as an additional Lambda, which provides some protected endpoints for basic user management. It must be behind a JWT Authorizer in the API Gateway. It is under development so not yet documented.
@@ -50,10 +44,6 @@ There is a second SEBA application which can be hosted as an additional Lambda, 
 ## Usage in your application
 
 You will need to provision SEBA with your JWT private key, and a list of clients. Clients provide a callback URL which is used to generate the "magic link" SEBA sends to the user's email address. Here you can configure the TTL of access tokens and refresh tokens, and you can set the default `scope` claim.
-
-### Example Lambdas
-
-#### Auth service
 
 ```go
 package main
@@ -228,3 +218,15 @@ Request:
 ```
 
 Response: same as the `email_token` grant type.
+
+## Design decisions
+
+oAuth 2 is followed in the API design because of its ubiquity - it is a mature protocol and therefore a solid foundation to implement token based security for modern apps. It follows similar conventions to oAuth 2, but with some key differences:
+
+- No Authorization Server or "single-sign-on" style website responsible for authentication and managing the granting of permissions. SEBA provides identity authentication using email verification. Effectively SEBA provides the Token Endpoint, and delegates the Authorization Server to 3rd parties (email services).
+
+- oAuth specifies that request bodies must be encoded with `application/x-www-urlencoded`, however I believe it's more common for new projects to use an entirely JSON-based API, so using JSON consistently is easier.
+
+- The PKCE (proof key for code exchange) oAuth extension is used as a fundamental security element to make sure the emails are only valid with the correct client session.
+
+- Scope parameter is not used on the token endpoint. This feature is specific to scenarios where the end-user chooses what permissions they want to grant to the clients. Since SEBA is not concerned with authorization at all, it has been left... out of scope.
