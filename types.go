@@ -5,6 +5,7 @@ import (
 
 	"github.com/g-wilson/runtime"
 	"github.com/g-wilson/runtime/hand"
+	"golang.org/x/oauth2"
 )
 
 const (
@@ -14,6 +15,7 @@ const (
 	GrantTypeEmailToken   = "email_token"
 	GrantTypeInviteToken  = "invite_token"
 	GrantTypeRefreshToken = "refresh_token"
+	GrantTypeGoogle       = "google"
 
 	APIGatewayClient = "client_awsapigateway"
 )
@@ -42,6 +44,8 @@ type Client struct {
 	InviteConsumptionEnabled bool
 	EmailAuthenticationURL   string
 	DefaultScopes            []string
+
+	GoogleConfig *oauth2.Config
 }
 
 type Credentials struct {

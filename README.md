@@ -228,9 +228,3 @@ Request:
 ```
 
 Response: same as the `email_token` grant type.
-
-## Future development
-
-- Modular email delivery backends
-- Apple ID sign-in as a grant type
-- Google sign-in as a grant type

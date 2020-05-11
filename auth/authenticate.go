@@ -5,11 +5,15 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
+	"encoding/json"
 	"time"
 
 	"github.com/g-wilson/runtime/hand"
 	"github.com/g-wilson/seba"
+	"golang.org/x/oauth2"
 )
+
+const GoogleIDTokenEndpoint = "https://oauth2.googleapis.com/tokeninfo"
 
 func (a *App) Authenticate(ctx context.Context, req *seba.AuthenticateRequest) (res *seba.AuthenticateResponse, err error) {
 	client, ok := a.clientsByID[req.ClientID]
@@ -26,6 +30,8 @@ func (a *App) Authenticate(ctx context.Context, req *seba.AuthenticateRequest) (
 		creds, err = a.useInviteToken(ctx, req.Code, client)
 	case seba.GrantTypeRefreshToken:
 		creds, err = a.useRefreshToken(ctx, req.Code, client)
+	case seba.GrantTypeGoogle:
+		creds, err = a.useGoogleToken(ctx, req.Code, client)
 	default:
 		err = seba.ErrUnsupportedGrantType // should not happen
 	}
@@ -151,6 +157,43 @@ func (a *App) useInviteToken(ctx context.Context, token string, client seba.Clie
 	err = a.Storage.SetInviteUsed(ctx, invite.ID, invite.AccountID)
 	if err != nil {
 		return nil, err
+	}
+
+	return a.CreateCredentials(ctx, user, client, nil)
+}
+
+func (a *App) useGoogleToken(ctx context.Context, code string, client seba.Client) (*seba.Credentials, error) {
+	if client.GoogleConfig == nil {
+		return nil, seba.ErrNotSupportedByClient
+	}
+
+	tok, err := client.GoogleConfig.Exchange(ctx, code, oauth2.AccessTypeOffline)
+	if err != nil {
+		return nil, err
+	}
+
+	gClient := client.GoogleConfig.Client(ctx, tok)
+
+	gResp, err := gClient.Get(GoogleIDTokenEndpoint)
+	if err != nil {
+		return nil, err
+	}
+	defer gResp.Body.Close()
+
+	var prof struct {
+		Email string `json:"email"`
+	}
+	err = json.NewDecoder(gResp.Body).Decode(&prof)
+	if err != nil {
+		return nil, err
+	}
+
+	user, err := a.Storage.GetUserByEmail(ctx, prof.Email)
+	if err != nil {
+		return nil, err
+	}
+	if user.RemovedAt != nil {
+		return nil, seba.ErrUserNotFound
 	}
 
 	return a.CreateCredentials(ctx, user, client, nil)
