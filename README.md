@@ -10,9 +10,7 @@ This is primarily an exercise for me to build something real with an entirely se
 
 -------
 
-SEBA is an opinionated service designed specifically for common mobile or JS web applications.
-
-The goal of SEBA is to provide a simple, sensible way to authenticate a user by using an email account as an identity. It is not concerned with granting scoped permissions to a variety of clients.
+SEBA is an opinionated service designed specifically for common mobile or JS web applications. The goal of SEBA is to provide a simple, sensible way to authenticate a user by using an email account as an identity. It is not concerned with granting scoped permissions to a variety of clients.
 
 Email identity can be verified in 3 ways:
 
@@ -22,7 +20,11 @@ Email identity can be verified in 3 ways:
 
 SEBA issues JWT access tokens for your application. It is specifically designed to be run on AWS Lambda using an HTTP API Gateway for invocation, so that you can take advantage of the provided JWT Authorizer.
 
-## Infrastructure setup
+It uses a single DynamoDB table to minimise provisioning steps, and allow you to use a truly serverless pay-as-you-use pricing model.
+
+## Usage in your application
+
+### Infrastructure overview
 
 ```
 *-- example.com/.well-known/openid-configuration -------------> [ oauth issuer details ]
@@ -41,9 +43,13 @@ The `openid-configuration` and `jwks.json` routes can return static files (examp
 
 There is a second SEBA application which can be hosted as an additional Lambda, which provides some protected endpoints for basic user management. It must be behind a JWT Authorizer in the API Gateway. It is under development so not yet documented.
 
-## Usage in your application
+### Creating the Lambda function
 
-You will need to provision SEBA with your JWT private key, and a list of clients. Clients provide a callback URL which is used to generate the "magic link" SEBA sends to the user's email address. Here you can configure the TTL of access tokens and refresh tokens, and you can set the default `scope` claim.
+It is assume you have your own packaging and deployment pipeline for Lambda, so SEBA is provided as a library for use in your own code.
+
+You will need to provision SEBA with your JWT private key, and a list of clients.
+
+Clients provide a callback URL which is used to generate the "magic link" SEBA sends to the user's email address. Here you can configure the TTL of access tokens and refresh tokens, and you can set the default `scope` claim.
 
 ```go
 package main
@@ -84,14 +90,16 @@ func main() {
 
 		Clients: []seba.Client{
 			seba.Client{
+				// Set a unique ID for your client. This will be the audience parameter in the access token JWT.
 				ID:                     "your-client-id",
-				EmailAuthenticationURL: "https://localhost:8080/authenticate",
+				// DefaultScopes is the list of scope strings to be issued in the access token JWT.
 				DefaultScopes:          []string{"api"},
+				// RefreshTokenTTL is a duration during which a refresh_token grant will be valid. Set to zero to disable refresh_token grant type.
 				RefreshTokenTTL:        90 * 24 * time.Hour,
-				EmailGrantEnabled:      true,
-				InviteGrantEnabled:     true,
-				GoogleGrantEnabled:     true,
-				AppleGrantEnabled:      true,
+				// EmailAuthenticationURL is the callback URL for magic link style authentication emails. Leave empty to disable email_token grant type.
+				EmailAuthenticationURL: "https://localhost:8080/authenticate",
+				// GoogleClientID is your Google sign-in client ID. Leave empty to disable google_id_token grant type.
+				GoogleClientID: "get-this-from-google",
 			},
 		},
 	})
@@ -103,15 +111,25 @@ func main() {
 }
 ```
 
-### Request flow
+## Design decisions
 
-Here is the typical API exchange, which should feel familiar if you've used oAuth 2 before:
+oAuth 2 is followed in the API design because of its ubiquity - it is a mature protocol and therefore a solid foundation to implement token based security for modern apps. It follows similar conventions to oAuth 2, but with some key differences:
 
-- Client generates a random string to use as the `state`
-- Client generates a random string to use for PKCE
-- Both strings are persisted
+- No Authorization Server or "single-sign-on" style website responsible for authentication and managing the granting of permissions. SEBA provides identity authentication using email verification. Effectively SEBA provides the Token Endpoint, and delegates the Authorization Server to 3rd parties (email services).
 
-**/send_authentication_email**
+- oAuth specifies that request bodies must be encoded with `application/x-www-urlencoded`, however I believe it's more common for new projects to use an entirely JSON-based API, so using JSON consistently is easier.
+
+- The PKCE (proof key for code exchange) oAuth extension is used as a fundamental security element to make sure the emails are only valid with the correct client session.
+
+- Scope parameter is not used on the token endpoint. This feature is specific to scenarios where the end-user chooses what permissions they want to grant to the clients. Since SEBA is not concerned with authorization at all, it has been left... out of scope.
+
+## API
+
+### /send_authentication_email
+
+Sends an email to the provided address with a callback URL to your client. The URL will have query parameters which you can then use on the authentication endpoint.
+
+- The client must generate two secure (high-entropy) strings. One for state (verified by the client) and one for PKCE (verified by the server)
 
 Request:
 
@@ -126,16 +144,15 @@ Request:
 
 Response: 204
 
-- The backend will generate the "magic link" callback URL and send it to the provided email
-
-`https://example.com/signin?code=${CODE}&state=${STATE}`
-
+- The backend will generate the "magic link" callback URL and send it to the provided email e.g. `https://example.com/signin?code=${CODE}&state=${STATE}`
 - The user must follow the URL to your application (e.g. a website or mobile app)
-- Client checks that the state parameter of the callback URL matches the persisted one
+- The client must check that the state parameter of the callback URL matches the persisted one
 
-**/authenticate**
+### /authenticate
 
-Request:
+#### email_token grant
+
+This grant uses PKCE to bind this request to the same client session as the original send_authentication_email request.
 
 ```json
 {
@@ -146,9 +163,34 @@ Request:
 }
 ```
 
+- The client should provide the original plaintext PKCE string (verifier)
 - SEBA will hash the `code_verifier` and check it matches the `code_challenge` from the initial request. This makes sure the email has not been hijacked and it's the same client session as initiated the flow.
 
-Response:
+#### google grant
+
+The client should authenticate the user with Google and present SEBA with the `id_token`
+
+```json
+{
+	"grant_type": "google_id_token",
+	"code": "{ google id_token }",
+	"client_id": "your-client-id"
+}
+```
+
+#### refresh_token grant
+
+You can use the refresh token returned from another grant type to generate new credentials, so that the end-user doesn't have to re-authenticate with their provider.
+
+```json
+{
+	"grant_type": "refresh_token",
+	"code": "{ refresh token }",
+	"client_id": "your-client-id"
+}
+```
+
+#### Response
 
 ```json
 {
@@ -160,7 +202,7 @@ Response:
 
 If you use Go, you can use the included `idcontext` package which provides two utility functions. One takes a `map[string]interface{}` of the JWT claims and will add a SEBA Identity instance to the context, designed to be used in a middleware function of some kind. And the other takes a context and returns the Identity, which you'd use in your application to validate the bearer's identity.
 
-### Access Token claims
+**Access Token claims**
 
 ```
 {
@@ -184,7 +226,7 @@ It is assumed you will use your own separate for storing account data related to
 
 The scope claim can be used for basic permissions checks. At the moment scopes are always determined by the client configuration, they are not part of the oAuth grant. The value is a space-delimited list of strings.
 
-### ID Token claims
+**ID Token claims**
 
 ```
 {
@@ -204,33 +246,3 @@ The scope claim can be used for basic permissions checks. At the moment scopes a
 ```
 
 The identity token provides the `user_id` and `account_id` in the same way as the access token, but it additionally provides the email addresses verified by the user.
-
-### Refreshing the session
-
-You can use the refresh token to generate new credentials at any time before the refresh token expires:
-
-**/authenticate**
-
-Request:
-
-```json
-{
-	"grant_type": "refresh_token",
-	"code": "{ refresh token }",
-	"client_id": "your-client-id"
-}
-```
-
-Response: same as the `email_token` grant type.
-
-## Design decisions
-
-oAuth 2 is followed in the API design because of its ubiquity - it is a mature protocol and therefore a solid foundation to implement token based security for modern apps. It follows similar conventions to oAuth 2, but with some key differences:
-
-- No Authorization Server or "single-sign-on" style website responsible for authentication and managing the granting of permissions. SEBA provides identity authentication using email verification. Effectively SEBA provides the Token Endpoint, and delegates the Authorization Server to 3rd parties (email services).
-
-- oAuth specifies that request bodies must be encoded with `application/x-www-urlencoded`, however I believe it's more common for new projects to use an entirely JSON-based API, so using JSON consistently is easier.
-
-- The PKCE (proof key for code exchange) oAuth extension is used as a fundamental security element to make sure the emails are only valid with the correct client session.
-
-- Scope parameter is not used on the token endpoint. This feature is specific to scenarios where the end-user chooses what permissions they want to grant to the clients. Since SEBA is not concerned with authorization at all, it has been left... out of scope.

@@ -12,5 +12,6 @@ require (
 	github.com/sirupsen/logrus v1.5.0
 	github.com/xeipuuv/gojsonschema v1.2.0
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
+	google.golang.org/api v0.24.0
 	gopkg.in/square/go-jose.v2 v2.4.1
 )

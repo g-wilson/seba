@@ -5,15 +5,15 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
-	"encoding/json"
 	"time"
 
-	"github.com/g-wilson/runtime/hand"
 	"github.com/g-wilson/seba"
-	"golang.org/x/oauth2"
-)
 
-const GoogleIDTokenEndpoint = "https://oauth2.googleapis.com/tokeninfo"
+	"github.com/g-wilson/runtime/hand"
+	"github.com/g-wilson/runtime/logger"
+	"google.golang.org/api/idtoken"
+	"gopkg.in/square/go-jose.v2/jwt"
+)
 
 func (a *App) Authenticate(ctx context.Context, req *seba.AuthenticateRequest) (res *seba.AuthenticateResponse, err error) {
 	client, ok := a.clientsByID[req.ClientID]
@@ -43,7 +43,7 @@ func (a *App) Authenticate(ctx context.Context, req *seba.AuthenticateRequest) (
 }
 
 func (a *App) useEmailToken(ctx context.Context, token string, client seba.Client, verifier *string) (creds *seba.Credentials, err error) {
-	if !client.EmailGrantEnabled {
+	if client.EmailAuthenticationURL == "" {
 		return nil, seba.ErrNotSupportedByClient
 	}
 
@@ -175,32 +175,36 @@ func (a *App) useInviteToken(ctx context.Context, token string, client seba.Clie
 }
 
 func (a *App) useGoogleToken(ctx context.Context, code string, client seba.Client) (*seba.Credentials, error) {
-	if client.GoogleConfig == nil {
+	if client.GoogleClientID == "" {
 		return nil, seba.ErrNotSupportedByClient
 	}
 
-	tok, err := client.GoogleConfig.Exchange(ctx, code, oauth2.AccessTypeOffline)
+	_, err := idtoken.Validate(ctx, code, client.GoogleClientID)
+	if err != nil {
+		logger.FromContext(ctx).Entry().WithError(err).Warn("google id token verification failed")
+
+		return nil, hand.New("google_grant_falied").WithMessage("Token verification failed")
+	}
+
+	tok, err := jwt.ParseSigned(code)
 	if err != nil {
 		return nil, err
 	}
-
-	gClient := client.GoogleConfig.Client(ctx, tok)
-
-	gResp, err := gClient.Get(GoogleIDTokenEndpoint)
+	cl := struct {
+		Email      string `json:"email"`
+		IsVerified bool   `json:"email_verified"`
+	}{}
+	if err := tok.UnsafeClaimsWithoutVerification(&cl); err != nil {
+		return nil, err
+	}
 	if err != nil {
 		return nil, err
 	}
-	defer gResp.Body.Close()
-
-	var prof struct {
-		Email string `json:"email"`
-	}
-	err = json.NewDecoder(gResp.Body).Decode(&prof)
-	if err != nil {
-		return nil, err
+	if !cl.IsVerified {
+		return nil, seba.ErrEmailNotVerified.WithMessage("Email address must be verified before using Google")
 	}
 
-	user, err := a.Storage.GetUserByEmail(ctx, prof.Email)
+	user, err := a.Storage.GetUserByEmail(ctx, cl.Email)
 	if err != nil {
 		return nil, err
 	}

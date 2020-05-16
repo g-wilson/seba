@@ -5,7 +5,6 @@ import (
 
 	"github.com/g-wilson/runtime"
 	"github.com/g-wilson/runtime/hand"
-	"golang.org/x/oauth2"
 )
 
 const (
@@ -15,7 +14,7 @@ const (
 	GrantTypeEmailToken   = "email_token"
 	GrantTypeInviteToken  = "invite_token"
 	GrantTypeRefreshToken = "refresh_token"
-	GrantTypeGoogle       = "google"
+	GrantTypeGoogle       = "google_id_token"
 
 	APIGatewayClient = "client_awsapigateway"
 )
@@ -38,22 +37,33 @@ var (
 	ErrRefreshTokenExpired  = hand.New("refresh_token_expired")
 	ErrInviteExpired        = hand.New("invite_expired")
 	ErrUserAlreadyExists    = hand.New("user_already_exists")
+	ErrEmailNotVerified     = hand.New("email_not_verified")
 )
 
+// Client represents one of your applications, e.g. your iOS app
 type Client struct {
-	ID                     string
-	EmailAuthenticationURL string
-	DefaultScopes          []string
-	RefreshTokenTTL        time.Duration
-	InviteGrantEnabled     bool
-	EmailGrantEnabled      bool
+	// Set a unique ID for your client. This will be the audience parameter in the access token JWT.
+	ID string
 
-	GoogleConfig *oauth2.Config
+	// DefaultScopes is the list of scope strings to be issued in the access token JWT.
+	DefaultScopes []string
+
+	// EmailAuthenticationURL is the callback URL for magic link style authentication emails. Leave empty to disable email_token grant type.
+	EmailAuthenticationURL string
+
+	// RefreshTokenTTL is a duration during which a refresh_token grant will be valid. Set to zero to disable refresh_token grant type.
+	RefreshTokenTTL time.Duration
+
+	// InviteGrantEnabled enables invite_token grant type
+	InviteGrantEnabled bool
+
+	// GoogleClientID is your Google sign-in client ID. Leave empty to disable google_id_token grant type.
+	GoogleClientID string
 }
 
 type Credentials struct {
 	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
+	RefreshToken string `json:"refresh_token,omitempty"`
 	IDToken      string `json:"id_token"`
 }
 
