@@ -4,9 +4,9 @@
 			"kty": "RSA",
 			"e": "AQAB",
 			"use": "sig",
-			"kid": "0xf09f8dba-001",
-			"alg": "RS256",
-			"n": "jIdhjWtH5Mznf3N0uBK96tMkvbNHPqjbf3vt1EDpKFPxth6rirUyDZfc72-B95NBKl1k9vvABwhsM3N3VthsXXhkUQ75T59MQq5IfoZutuhtFd1QzJsQZNsRBXlC8CraRLzgBoHxRMO1yA62gfIOJJV-4BiUjfPdvTrEnn9MjsCFfD3G7RqmBqIVhvSrRvStUkeL1XlH04kDGsa33vi9S2n_3lr3_tz-r8r1mbDsIsmpd3FKlf8jXQ1L5UZp92WR5OWjuxHhFgmma-qc5TJspkzafB11zuiGYpJpoxHb_TdlgJV2wNEncGcx8U5u5LnlVw6YLefGYyXrK4vIkcR3Zw"
+			"kid": "seba-example",
+			"alg": "RS512",
+			"n": "qH9sFnQ_e_6KaybAPGYlIuP2FbWvkpb4E_ZuurYOjy3b9V76OHhvNopEoAJQAl4i4hsi6xXt-0WwVOZqq4FtP-C76wGZFwYZXUU2CMtCLkKnBy6v2u3SjgtEylKY9zYm-saV1m-YVh-hSZFOxHh5K3X4HF1FVf-v4NVLRQKzWaLrWFc4bxq1yCaXenaSzril__BPSz-abf543NfrMf0qVnc_PAAMy1Qzs82u5XavPZpu1Xizv7CZeiueddD8yv2EOEkWJfTJbvuYNOFyN0DmV1nl7W8RAdwc6mGDZLmGeaKpA53vkc1FvSL00Yyasr4Dv8dzdo7ZUVQPMip7q4Ka0Q"
 		}
 	]
 }
