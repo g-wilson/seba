@@ -49,7 +49,7 @@ func (a *App) CreateCredentials(ctx context.Context, user *storage.User, client 
 		return
 	}
 
-	emails, err := a.Storage.GetUserEmails(ctx, user.ID)
+	emails, err := a.Storage.ListUserEmails(ctx, user.ID)
 	if err != nil {
 		return nil, err
 	}

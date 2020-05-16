@@ -8,11 +8,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/g-wilson/seba"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/g-wilson/runtime/hand"
 	"github.com/guregu/dynamo"
 )
 
@@ -75,7 +76,7 @@ func (s *DynamoStorage) GetAuthenticationByID(ctx context.Context, authenticatio
 
 	if err != nil {
 		if err == dynamo.ErrNotFound {
-			err = hand.New("authentication_not_found")
+			err = seba.ErrAuthnNotFound
 		}
 	}
 
@@ -93,13 +94,13 @@ func (s *DynamoStorage) GetAuthenticationByHashedCode(ctx context.Context, hashe
 
 	if err != nil {
 		if err == dynamo.ErrNotFound {
-			err = hand.New("authentication_not_found")
+			err = seba.ErrAuthnNotFound
 		}
 
 		return
 	}
 	if ent.RevokedAt != nil {
-		return nil, hand.New("authentication_not_found")
+		return nil, seba.ErrAuthnNotFound
 	}
 
 	return
@@ -117,7 +118,7 @@ func (s *DynamoStorage) SetAuthenticationVerified(ctx context.Context, authentic
 
 	if err != nil {
 		if strings.HasPrefix(err.Error(), dynamodb.ErrCodeConditionalCheckFailedException) {
-			err = hand.New("authentication_already_verified")
+			err = seba.ErrAuthnAlreadyVerified
 		}
 	}
 
@@ -183,7 +184,7 @@ func (s *DynamoStorage) GetRefreshTokenByHashedToken(ctx context.Context, hashed
 
 	if err != nil {
 		if err == dynamo.ErrNotFound {
-			err = hand.New("refresh_token_not_found")
+			err = seba.ErrRefreshTokenNotFound
 		}
 	}
 
@@ -202,7 +203,7 @@ func (s *DynamoStorage) SetRefreshTokenUsed(ctx context.Context, reftokID, userI
 
 	if err != nil {
 		if strings.HasPrefix(err.Error(), dynamodb.ErrCodeConditionalCheckFailedException) {
-			err = hand.New("refresh_token_already_used")
+			err = seba.ErrRefreshTokenUsed
 		}
 	}
 
@@ -219,11 +220,11 @@ func (s *DynamoStorage) GetAccountByID(ctx context.Context, accountID string) (e
 
 	if err != nil {
 		if err == dynamo.ErrNotFound {
-			err = hand.New("account_not_found")
+			err = seba.ErrAccountNotFound
 		}
 	}
 	if ent.RemovedAt != nil {
-		err = hand.New("account_not_found")
+		err = seba.ErrAccountNotFound
 	}
 
 	return
@@ -258,11 +259,11 @@ func (s *DynamoStorage) GetUserByID(ctx context.Context, userID string) (ent *Us
 
 	if err != nil {
 		if err == dynamo.ErrNotFound {
-			err = hand.New("user_not_found")
+			err = seba.ErrUserNotFound
 		}
 	}
 	if ent.RemovedAt != nil {
-		err = hand.New("user_not_found")
+		err = seba.ErrUserNotFound
 	}
 
 	return
@@ -280,10 +281,11 @@ func (s *DynamoStorage) GetUserByEmail(ctx context.Context, email string) (ent *
 
 	if err != nil {
 		if err == dynamo.ErrNotFound {
-			err = hand.New("user_not_found")
+			err = seba.ErrUserNotFound
 		}
-
-		return
+	}
+	if ent.RemovedAt != nil {
+		err = seba.ErrUserNotFound
 	}
 
 	err = s.db.Table(s.table).
@@ -292,10 +294,10 @@ func (s *DynamoStorage) GetUserByEmail(ctx context.Context, email string) (ent *
 		OneWithContext(ctx, ent)
 
 	if err != nil && err == dynamo.ErrNotFound {
-		err = hand.New("user_not_found")
+		err = seba.ErrUserNotFound
 	}
 	if ent.RemovedAt != nil {
-		err = hand.New("user_not_found")
+		err = seba.ErrUserNotFound
 	}
 
 	return
@@ -334,14 +336,11 @@ func (s *DynamoStorage) CreateUserWithEmail(ctx context.Context, accountID, emai
 		UserID:    user.ID,
 	}
 
-	// hash the email to prevent PII
-	emailDedupeValue := fmt.Sprintf("emaildedupe_%s", sha256Hex(emailAddress))
-
 	dedupeRecord := struct {
 		Hash  string `dynamo:"id"`
 		Range string `dynamo:"relation"`
 	}{
-		Hash:  emailDedupeValue,
+		Hash:  createEmailDedupeID(emailAddress),
 		Range: "email_dedupe_global",
 	}
 
@@ -358,7 +357,7 @@ func (s *DynamoStorage) CreateUserWithEmail(ctx context.Context, accountID, emai
 	if err != nil {
 		if aErr, ok := err.(awserr.Error); ok {
 			if strings.Contains(aErr.Error(), "ConditionalCheckFailed") {
-				err = hand.New("email_taken")
+				err = seba.ErrEmailTaken
 			}
 		}
 	}
@@ -394,7 +393,7 @@ func (s *DynamoStorage) GetInviteByHashedToken(ctx context.Context, token string
 		OneWithContext(ctx, ent)
 
 	if err != nil && err == dynamo.ErrNotFound {
-		err = hand.New("invite_not_found")
+		err = seba.ErrInviteNotFound
 	}
 
 	return
@@ -411,22 +410,33 @@ func (s *DynamoStorage) SetInviteUsed(ctx context.Context, inviteID, accountID s
 		RunWithContext(ctx)
 
 	if err != nil && strings.HasPrefix(err.Error(), dynamodb.ErrCodeConditionalCheckFailedException) {
-		err = hand.New("invite_already_consumed")
+		err = seba.ErrInviteConsumed
 	}
 
 	return
 }
 
-func (s *DynamoStorage) GetUserEmails(ctx context.Context, userID string) (ems []Email, err error) {
-	ems = []Email{}
+func (s *DynamoStorage) ListUserEmails(ctx context.Context, userID string) (ems []Email, err error) {
+	allems := []Email{}
 
 	err = s.db.Table(s.table).
 		Get("relation", userID).
 		Index("relationLookup").
 		Range("id", dynamo.BeginsWith, TypePrefixEmail).
-		AllWithContext(ctx, &ems)
+		AllWithContext(ctx, &allems)
+
+	ems = []Email{}
+	for _, em := range allems {
+		if em.RemovedAt == nil {
+			ems = append(ems, em)
+		}
+	}
 
 	return
+}
+
+func createEmailDedupeID(email string) string {
+	return fmt.Sprintf("emaildedupe_%s", sha256Hex(email))
 }
 
 func sha256Hex(inputStr string) string {

@@ -83,9 +83,6 @@ func (a *App) useEmailToken(ctx context.Context, token string, client seba.Clien
 	if err != nil {
 		return nil, err
 	}
-	if user.RemovedAt != nil {
-		return nil, seba.ErrUserNotFound
-	}
 
 	creds, err = a.CreateCredentials(ctx, user, client, &authn.ID)
 	if err != nil {
@@ -207,9 +204,6 @@ func (a *App) useGoogleToken(ctx context.Context, code string, client seba.Clien
 	user, err := a.Storage.GetUserByEmail(ctx, cl.Email)
 	if err != nil {
 		return nil, err
-	}
-	if user.RemovedAt != nil {
-		return nil, seba.ErrUserNotFound
 	}
 
 	return a.CreateCredentials(ctx, user, client, nil)

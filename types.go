@@ -20,24 +20,39 @@ const (
 )
 
 var (
-	ErrAccessDenied         = hand.New(runtime.ErrCodeAccessDenied)
-	ErrCreatingEmail        = hand.New("create_email_failed")
-	ErrSendingEmail         = hand.New("send_email_failed")
-	ErrUserNotFound         = hand.New("user_not_found")
+	ErrAccessDenied = hand.New(runtime.ErrCodeAccessDenied)
+
+	ErrCreatingEmail = hand.New("create_email_failed")
+	ErrSendingEmail  = hand.New("send_email_failed")
+
 	ErrNotSupportedByClient = hand.New("not_supported_by_client")
 	ErrPKCEVerifierRequired = hand.New("pkce_verifier_required")
 	ErrPKCEChallengeFailed  = hand.New("code_challenge_failed")
 	ErrUnsupportedGrantType = hand.New("unsupported_grant_type")
-	ErrClientNotFound       = hand.New("client_not_found")
-	ErrClientIDMismatch     = hand.New("client_id_mismatch")
+	ErrAuthnNotFound        = hand.New("authentication_not_found")
+
+	ErrEmailNotVerified = hand.New("email_not_verified")
+	ErrEmailTaken       = hand.New("email_taken")
+
+	ErrClientNotFound   = hand.New("client_not_found")
+	ErrClientIDMismatch = hand.New("client_id_mismatch")
+
 	ErrAuthnExpired         = hand.New("authn_expired")
 	ErrAuthnAlreadyVerified = hand.New("authn_already_verified")
 	ErrAuthnRevoked         = hand.New("authn_revoked")
+
+	ErrRefreshTokenNotFound = hand.New("refresh_token_not_found")
 	ErrRefreshTokenUsed     = hand.New("refresh_token_already_used")
 	ErrRefreshTokenExpired  = hand.New("refresh_token_expired")
-	ErrInviteExpired        = hand.New("invite_expired")
-	ErrUserAlreadyExists    = hand.New("user_already_exists")
-	ErrEmailNotVerified     = hand.New("email_not_verified")
+
+	ErrUserNotFound      = hand.New("user_not_found")
+	ErrUserAlreadyExists = hand.New("user_already_exists")
+
+	ErrAccountNotFound = hand.New("account_not_found")
+
+	ErrInviteExpired  = hand.New("invite_expired")
+	ErrInviteNotFound = hand.New("invite_not_found")
+	ErrInviteConsumed = hand.New("invite_already_consumed")
 )
 
 // Client represents one of your applications, e.g. your iOS app

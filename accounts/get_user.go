@@ -17,11 +17,8 @@ func (a *App) GetUser(ctx context.Context, req *seba.GetUserRequest) (*seba.GetU
 	if err != nil {
 		return nil, err
 	}
-	if user.RemovedAt != nil {
-		return nil, seba.ErrUserNotFound
-	}
 
-	ems, err := a.Storage.GetUserEmails(ctx, user.ID)
+	ems, err := a.Storage.ListUserEmails(ctx, user.ID)
 	if err != nil {
 		return nil, err
 	}

@@ -58,10 +58,11 @@ type User struct {
 }
 
 type Email struct {
-	ID        string    `json:"id" dynamo:"id"`
-	Email     string    `json:"email" dynamo:"lookup_value"`
-	UserID    string    `json:"user_id" dynamo:"relation"`
-	CreatedAt time.Time `json:"created_at" dynamo:"created_at,unixtime"`
+	ID        string     `json:"id" dynamo:"id"`
+	Email     string     `json:"email" dynamo:"lookup_value"`
+	UserID    string     `json:"user_id" dynamo:"relation"`
+	CreatedAt time.Time  `json:"created_at" dynamo:"created_at,unixtime"`
+	RemovedAt *time.Time `json:"removed_at" dynamo:"removed_at,unixtime"`
 }
 
 type Invite struct {
@@ -93,7 +94,7 @@ type Storage interface {
 
 	GetUserByID(ctx context.Context, userID string) (ent *User, err error)
 	GetUserByEmail(ctx context.Context, email string) (ent *User, err error)
-	GetUserEmails(ctx context.Context, userID string) (ems []Email, err error)
+	ListUserEmails(ctx context.Context, userID string) (ems []Email, err error)
 	CreateUserWithEmail(ctx context.Context, accountID, emailAddress string) (user *User, err error)
 
 	CreateInvite(ctx context.Context, accountID, email, token string) (ent *Invite, err error)
