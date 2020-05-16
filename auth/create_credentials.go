@@ -28,18 +28,6 @@ type IDTokenClaims struct {
 }
 
 func (a *App) CreateCredentials(ctx context.Context, user *storage.User, client seba.Client, authnID *string) (creds *seba.Credentials, err error) {
-	refreshToken, err := token.GenerateToken(32)
-	if err != nil {
-		return
-	}
-
-	a.Logger.Debugf("refresh_token: %s", refreshToken)
-
-	_, err = a.Storage.CreateRefreshToken(ctx, user.ID, client.ID, sha256Hex(refreshToken), authnID)
-	if err != nil {
-		return
-	}
-
 	basicClaims := jwt.Claims{
 		Subject:   user.ID,
 		Issuer:    a.jwtConfig.Issuer,
@@ -81,11 +69,28 @@ func (a *App) CreateCredentials(ctx context.Context, user *storage.User, client 
 		return
 	}
 
-	return &seba.Credentials{
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
-		IDToken:      idToken,
-	}, nil
+	creds = &seba.Credentials{
+		AccessToken: accessToken,
+		IDToken:     idToken,
+	}
+
+	if client.RefreshGrantEnabed() {
+		refreshToken, err := token.GenerateToken(32)
+		if err != nil {
+			return nil, err
+		}
+
+		a.Logger.Debugf("refresh_token: %s", refreshToken)
+
+		_, err = a.Storage.CreateRefreshToken(ctx, user.ID, client.ID, sha256Hex(refreshToken), authnID)
+		if err != nil {
+			return nil, err
+		}
+
+		creds.RefreshToken = refreshToken
+	}
+
+	return creds, nil
 }
 
 // CreateClientAccessToken can be used to mint a one-off access token. Typical usage would be for local development or for service-to-service auth.

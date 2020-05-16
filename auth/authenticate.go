@@ -43,7 +43,7 @@ func (a *App) Authenticate(ctx context.Context, req *seba.AuthenticateRequest) (
 }
 
 func (a *App) useEmailToken(ctx context.Context, token string, client seba.Client, verifier *string) (creds *seba.Credentials, err error) {
-	if client.EmailAuthenticationURL == "" {
+	if !client.EmailGrantEnabled() {
 		return nil, seba.ErrNotSupportedByClient
 	}
 
@@ -98,7 +98,7 @@ func (a *App) useEmailToken(ctx context.Context, token string, client seba.Clien
 }
 
 func (a *App) useRefreshToken(ctx context.Context, token string, client seba.Client) (*seba.Credentials, error) {
-	if client.RefreshTokenTTL <= 0*time.Second {
+	if !client.RefreshGrantEnabed() {
 		return nil, seba.ErrNotSupportedByClient
 	}
 
@@ -138,7 +138,7 @@ func (a *App) useRefreshToken(ctx context.Context, token string, client seba.Cli
 }
 
 func (a *App) useInviteToken(ctx context.Context, token string, client seba.Client) (*seba.Credentials, error) {
-	if !client.InviteGrantEnabled {
+	if !client.InviteGrantEnabled() {
 		return nil, seba.ErrNotSupportedByClient
 	}
 
@@ -175,7 +175,7 @@ func (a *App) useInviteToken(ctx context.Context, token string, client seba.Clie
 }
 
 func (a *App) useGoogleToken(ctx context.Context, code string, client seba.Client) (*seba.Credentials, error) {
-	if client.GoogleClientID == "" {
+	if !client.GoogleGrantEnabled() {
 		return nil, seba.ErrNotSupportedByClient
 	}
 

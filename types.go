@@ -54,11 +54,27 @@ type Client struct {
 	// RefreshTokenTTL is a duration during which a refresh_token grant will be valid. Set to zero to disable refresh_token grant type.
 	RefreshTokenTTL time.Duration
 
-	// InviteGrantEnabled enables invite_token grant type
-	InviteGrantEnabled bool
+	// EnableInviteConsumption enables invite_token grant type
+	EnableInviteConsumption bool
 
 	// GoogleClientID is your Google sign-in client ID. Leave empty to disable google_id_token grant type.
 	GoogleClientID string
+}
+
+func (c *Client) GoogleGrantEnabled() bool {
+	return c.GoogleClientID == ""
+}
+
+func (c *Client) RefreshGrantEnabed() bool {
+	return c.RefreshTokenTTL > 0*time.Second
+}
+
+func (c *Client) EmailGrantEnabled() bool {
+	return c.EmailAuthenticationURL == ""
+}
+
+func (c *Client) InviteGrantEnabled() bool {
+	return c.EnableInviteConsumption
 }
 
 type Credentials struct {
