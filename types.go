@@ -35,15 +35,18 @@ var (
 	ErrAuthnAlreadyVerified = hand.New("authn_already_verified")
 	ErrAuthnRevoked         = hand.New("authn_revoked")
 	ErrRefreshTokenUsed     = hand.New("refresh_token_already_used")
+	ErrRefreshTokenExpired  = hand.New("refresh_token_expired")
 	ErrInviteExpired        = hand.New("invite_expired")
 	ErrUserAlreadyExists    = hand.New("user_already_exists")
 )
 
 type Client struct {
-	ID                       string
-	InviteConsumptionEnabled bool
-	EmailAuthenticationURL   string
-	DefaultScopes            []string
+	ID                     string
+	EmailAuthenticationURL string
+	DefaultScopes          []string
+	RefreshTokenTTL        time.Duration
+	InviteGrantEnabled     bool
+	EmailGrantEnabled      bool
 
 	GoogleConfig *oauth2.Config
 }

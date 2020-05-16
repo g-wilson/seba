@@ -43,6 +43,10 @@ func (a *App) Authenticate(ctx context.Context, req *seba.AuthenticateRequest) (
 }
 
 func (a *App) useEmailToken(ctx context.Context, token string, client seba.Client, verifier *string) (creds *seba.Credentials, err error) {
+	if !client.EmailGrantEnabled {
+		return nil, seba.ErrNotSupportedByClient
+	}
+
 	if verifier == nil {
 		return nil, seba.ErrPKCEVerifierRequired
 	}
@@ -94,6 +98,10 @@ func (a *App) useEmailToken(ctx context.Context, token string, client seba.Clien
 }
 
 func (a *App) useRefreshToken(ctx context.Context, token string, client seba.Client) (*seba.Credentials, error) {
+	if client.RefreshTokenTTL <= 0*time.Second {
+		return nil, seba.ErrNotSupportedByClient
+	}
+
 	rt, err := a.Storage.GetRefreshTokenByHashedToken(ctx, sha256Hex(token))
 	if err != nil {
 		return nil, err
@@ -105,6 +113,10 @@ func (a *App) useRefreshToken(ctx context.Context, token string, client seba.Cli
 
 	if rt.ClientID != client.ID {
 		return nil, seba.ErrClientIDMismatch
+	}
+
+	if rt.CreatedAt.Add(client.RefreshTokenTTL).Before(time.Now()) {
+		return nil, seba.ErrRefreshTokenExpired
 	}
 
 	user, err := a.Storage.GetUserByID(ctx, rt.UserID)
@@ -126,7 +138,7 @@ func (a *App) useRefreshToken(ctx context.Context, token string, client seba.Cli
 }
 
 func (a *App) useInviteToken(ctx context.Context, token string, client seba.Client) (*seba.Credentials, error) {
-	if !client.InviteConsumptionEnabled {
+	if !client.InviteGrantEnabled {
 		return nil, seba.ErrNotSupportedByClient
 	}
 

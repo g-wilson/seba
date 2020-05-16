@@ -84,10 +84,14 @@ func main() {
 
 		Clients: []seba.Client{
 			seba.Client{
-				ID:                       "your-client-id",
-				EmailAuthenticationURL:   "https://localhost:8080/authenticate",
-				InviteConsumptionEnabled: true,
-				DefaultScopes:            []string{"api"},
+				ID:                     "your-client-id",
+				EmailAuthenticationURL: "https://localhost:8080/authenticate",
+				DefaultScopes:          []string{"api"},
+				RefreshTokenTTL:        90 * 24 * time.Hour,
+				EmailGrantEnabled:      true,
+				InviteGrantEnabled:     true,
+				GoogleGrantEnabled:     true,
+				AppleGrantEnabled:      true,
 			},
 		},
 	})
