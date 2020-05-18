@@ -5,6 +5,7 @@ import (
 
 	"github.com/g-wilson/runtime"
 	"github.com/g-wilson/runtime/hand"
+	"golang.org/x/oauth2"
 )
 
 const (
@@ -14,7 +15,7 @@ const (
 	GrantTypeEmailToken   = "email_token"
 	GrantTypeInviteToken  = "invite_token"
 	GrantTypeRefreshToken = "refresh_token"
-	GrantTypeGoogle       = "google_id_token"
+	GrantTypeGoogle       = "google_authz_code"
 
 	APIGatewayClient = "client_awsapigateway"
 )
@@ -72,12 +73,12 @@ type Client struct {
 	// EnableInviteConsumption enables invite_token grant type
 	EnableInviteConsumption bool
 
-	// GoogleClientID is your Google sign-in client ID. Leave empty to disable google_id_token grant type.
-	GoogleClientID string
+	// GoogleConfig is used to create the google API client to exchange the authorization code
+	GoogleConfig *oauth2.Config
 }
 
 func (c *Client) GoogleGrantEnabled() bool {
-	return c.GoogleClientID == ""
+	return c.GoogleConfig != nil
 }
 
 func (c *Client) RefreshGrantEnabed() bool {

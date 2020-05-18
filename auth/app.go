@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ses"
 	"github.com/g-wilson/runtime/logger"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/oauth2/google"
 	jose "gopkg.in/square/go-jose.v2"
 )
 
@@ -73,6 +74,13 @@ func New(cfg Config) (*App, error) {
 
 	if cfg.EmailConfig.AuthnEmailTemplate == nil {
 		return nil, errors.New("you must provide an email template")
+	}
+
+	for i, cl := range cfg.Clients {
+		if cl.GoogleConfig != nil {
+			cfg.Clients[i].GoogleConfig.Scopes = []string{"email"}
+			cfg.Clients[i].GoogleConfig.Endpoint = google.Endpoint
+		}
 	}
 
 	app := &App{

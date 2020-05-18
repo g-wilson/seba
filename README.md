@@ -58,6 +58,8 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/g-wilson/runtime"
 	"github.com/g-wilson/seba/auth"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 )
 
 func main() {
@@ -97,9 +99,13 @@ func main() {
 				// RefreshTokenTTL is a duration during which a refresh_token grant will be valid. Set to zero to disable refresh_token grant type.
 				RefreshTokenTTL:        90 * 24 * time.Hour,
 				// EmailAuthenticationURL is the callback URL for magic link style authentication emails. Leave empty to disable email_token grant type.
-				EmailAuthenticationURL: "https://localhost:8080/authenticate",
-				// GoogleClientID is your Google sign-in client ID. Leave empty to disable google_id_token grant type.
-				GoogleClientID: "get-this-from-google",
+				EmailAuthenticationURL: "https://localhost:8080/auth/email-callback",
+				// GoogleConfig is used to create the google API client to exchange the authorization code
+				GoogleConfig: &oauth2.Config{
+					ClientID:     os.Getenv("GOOGLE_OAUTH_CLIENT_ID"),
+					ClientSecret: os.Getenv("GOOGLE_OAUTH_SECRET"),
+					RedirectURL:  "https://localhost:8080/auth/google-callback",
+				},
 			},
 		},
 	})
@@ -168,12 +174,12 @@ This grant uses PKCE to bind this request to the same client session as the orig
 
 #### google grant
 
-The client should authenticate the user with Google and present SEBA with the `id_token`
+The client should authenticate the user with Google and ask for "offline access" in order to obtain a one-time-use token as described in the [Google documentation](https://developers.google.com/identity/sign-in/web/server-side-flow).
 
 ```json
 {
-	"grant_type": "google_id_token",
-	"code": "{ google id_token }",
+	"grant_type": "google_authz_code",
+	"code": "{ google authz code }",
 	"client_id": "your-client-id"
 }
 ```

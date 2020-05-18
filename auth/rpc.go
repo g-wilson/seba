@@ -15,7 +15,7 @@ func (a *App) RPC() *rpcservice.Service {
 			"properties": {
 				"grant_type": {
 					"type": "string",
-					"enum": [ "email_token", "invite_token", "refresh_token", "google_id_token" ]
+					"enum": [ "email_token", "invite_token", "refresh_token", "google_authz_code" ]
 				},
 				"code": {
 					"type": "string",

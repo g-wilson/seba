@@ -5,13 +5,13 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
+	"errors"
 	"time"
 
 	"github.com/g-wilson/seba"
 
 	"github.com/g-wilson/runtime/hand"
-	"github.com/g-wilson/runtime/logger"
-	"google.golang.org/api/idtoken"
+	"golang.org/x/oauth2"
 	"gopkg.in/square/go-jose.v2/jwt"
 )
 
@@ -176,14 +176,17 @@ func (a *App) useGoogleToken(ctx context.Context, code string, client seba.Clien
 		return nil, seba.ErrNotSupportedByClient
 	}
 
-	_, err := idtoken.Validate(ctx, code, client.GoogleClientID)
+	gResp, err := client.GoogleConfig.Exchange(ctx, code, oauth2.AccessTypeOffline)
 	if err != nil {
-		logger.FromContext(ctx).Entry().WithError(err).Warn("google id token verification failed")
-
-		return nil, hand.New("google_grant_falied").WithMessage("Token verification failed")
+		return nil, err
 	}
 
-	tok, err := jwt.ParseSigned(code)
+	idtoken, ok := gResp.Extra("id_token").(string)
+	if !ok {
+		return nil, errors.New("google auth failed: id_token not found in token response")
+	}
+
+	tok, err := jwt.ParseSigned(idtoken)
 	if err != nil {
 		return nil, err
 	}
