@@ -52,10 +52,8 @@ func SetIdentity(ctx context.Context, claims map[string]interface{}) context.Con
 	if cid, ok := claims["cid"].(string); ok {
 		b.ClientID = cid
 	}
-	if scsl, ok := claims["scope"].([]string); ok {
-		for _, sc := range scsl {
-			b.Scopes = strings.Split(sc, " ")
-		}
+	if sc, ok := claims["scope"].(string); ok {
+		b.Scopes = strings.Split(sc, " ")
 	}
 
 	ctx = context.WithValue(ctx, ctxkey, b)
