@@ -74,10 +74,10 @@ func main() {
 
 		Clients: []seba.Client{
 			seba.Client{
-				ID:                       "client_example1",
-				EmailAuthenticationURL:   "https://localhost:8080/authenticate",
-				InviteConsumptionEnabled: true,
-				DefaultScopes:            []string{"api"},
+				ID:                      "client_example1",
+				EmailAuthenticationURL:  "https://localhost:8080/authenticate",
+				EnableInviteConsumption: true,
+				DefaultScopes:           []string{"api"},
 			},
 		},
 	})
