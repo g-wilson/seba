@@ -2,7 +2,7 @@
 
 > Serverless Email-based Authentication
 
-Add passwordless authentication to your application with a serverless philosophy.
+Add secure passwordless authentication to your application with a serverless philosophy.
 
 -------
 
@@ -21,6 +21,8 @@ Email identity can be verified in 3 ways:
 SEBA issues JWT access tokens for your application. It is specifically designed to be run on AWS Lambda using an HTTP API Gateway for invocation, so that you can take advantage of the provided JWT Authorizer.
 
 It uses a single DynamoDB table to minimise provisioning steps, and allow you to use a truly serverless pay-as-you-use pricing model.
+
+WebAuthn is supported for second-factor authentication using hardware security tokens.
 
 ## Usage in your application
 

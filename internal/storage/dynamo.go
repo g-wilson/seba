@@ -146,8 +146,8 @@ func (s *DynamoStorage) SetAuthenticationRevoked(ctx context.Context, authentica
 	return
 }
 
-func (s *DynamoStorage) ListPendingAuthentications(ctx context.Context, email string) (authns []Authentication, err error) {
-	authns = []Authentication{}
+func (s *DynamoStorage) ListPendingAuthentications(ctx context.Context, email string) (authns []*Authentication, err error) {
+	authns = []*Authentication{}
 
 	err = s.db.Table(s.table).
 		Get("relation", email).
@@ -335,8 +335,8 @@ func (s *DynamoStorage) CreateUserWithEmail(ctx context.Context, emailAddress st
 	return user, nil
 }
 
-func (s *DynamoStorage) ListUserEmails(ctx context.Context, userID string) (ems []Email, err error) {
-	allems := []Email{}
+func (s *DynamoStorage) ListUserEmails(ctx context.Context, userID string) (ems []*Email, err error) {
+	allems := []*Email{}
 
 	err = s.db.Table(s.table).
 		Get("relation", userID).
@@ -347,7 +347,7 @@ func (s *DynamoStorage) ListUserEmails(ctx context.Context, userID string) (ems 
 		return nil, fmt.Errorf("dynamo: ListUserEmails: %w", err)
 	}
 
-	ems = []Email{}
+	ems = []*Email{}
 	for _, em := range allems {
 		if em.RemovedAt == nil {
 			ems = append(ems, em)

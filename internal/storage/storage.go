@@ -64,7 +64,7 @@ type Storage interface {
 	GetAuthenticationByHashedCode(ctx context.Context, hashedCode string) (ent *Authentication, err error)
 	SetAuthenticationVerified(ctx context.Context, authenticationID, email string) (err error)
 	SetAuthenticationRevoked(ctx context.Context, authenticationID, email string) (err error)
-	ListPendingAuthentications(ctx context.Context, email string) (authns []Authentication, err error)
+	ListPendingAuthentications(ctx context.Context, email string) (authns []*Authentication, err error)
 
 	CreateRefreshToken(ctx context.Context, userID, clientID, hashedToken string, authnID *string) (ent *RefreshToken, err error)
 	GetRefreshTokenByHashedToken(ctx context.Context, hashedToken string) (ent *RefreshToken, err error)
@@ -72,6 +72,6 @@ type Storage interface {
 
 	GetUserByID(ctx context.Context, userID string) (ent *User, err error)
 	GetUserByEmail(ctx context.Context, email string) (ent *User, err error)
-	ListUserEmails(ctx context.Context, userID string) (ems []Email, err error)
+	ListUserEmails(ctx context.Context, userID string) (ems []*Email, err error)
 	CreateUserWithEmail(ctx context.Context, emailAddress string) (user *User, err error)
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
+	webauthnProtocol "github.com/duo-labs/webauthn/protocol"
 	"github.com/g-wilson/runtime"
 	"github.com/g-wilson/runtime/hand"
 	"golang.org/x/oauth2"
@@ -67,6 +68,9 @@ type Config struct {
 	JWTPrivateKey string
 	JWTIssuer     string
 
+	WebauthnDisplayName string
+	WebauthnID          string
+
 	Clients []Client
 }
 
@@ -93,8 +97,11 @@ type Client struct {
 	// RefreshTokenTTL is a duration during which a refresh_token grant will be valid. Set to zero to disable refresh_token grant type.
 	RefreshTokenTTL time.Duration
 
-	// GoogleConfig is used to create the google API client to exchange the authorization code
+	// GoogleConfig is used to create the google API client to exchange the authorization code. Leave empty to disable google_authz_code grant type.
 	GoogleConfig *oauth2.Config
+
+	// WebauthnOrigin is used to validate webauthn requests against a web page. Leave empty to disable webauthn functionality.
+	WebauthnOrigin string
 }
 
 func (c *Client) GoogleGrantEnabled() bool {
@@ -107,6 +114,10 @@ func (c *Client) RefreshGrantEnabed() bool {
 
 func (c *Client) EmailGrantEnabled() bool {
 	return c.EmailAuthenticationURL != ""
+}
+
+func (c *Client) WebauthnEnabled() bool {
+	return c.WebauthnOrigin != ""
 }
 
 type Credentials struct {
@@ -131,4 +142,40 @@ type SendAuthenticationEmailRequest struct {
 	State         string `json:"state"`
 	ClientID      string `json:"client_id"`
 	PKCEChallenge string `json:"pkce_challenge"`
+}
+
+type StartWebauthnRegistrationRequest struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
+type StartWebauthnRegistrationResponse struct {
+	AssertionOptions webauthnProtocol.PublicKeyCredentialCreationOptions `json:"assertion_options"`
+}
+
+type CompleteWebauthnRegistrationRequest struct {
+	RefreshToken      string `json:"refresh_token"`
+	AssertionResponse string `json:"assertion_response"`
+}
+
+type CompleteWebauthnRegistrationResponse struct {
+	RefreshToken string `json:"refresh_token"`
+	AccessToken  string `json:"access_token"`
+}
+
+type StartWebauthnVerificationRequest struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
+type StartWebauthnVerificationResponse struct {
+	AssertionOptions webauthnProtocol.PublicKeyCredentialRequestOptions `json:"assertion_options"`
+}
+
+type CompleteWebauthnVerificationRequest struct {
+	RefreshToken      string `json:"refresh_token"`
+	AssertionResponse string `json:"assertion_response"`
+}
+
+type CompleteWebauthnVerificationResponse struct {
+	RefreshToken string `json:"refresh_token"`
+	AccessToken  string `json:"access_token"`
 }

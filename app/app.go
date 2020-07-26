@@ -19,12 +19,18 @@ type jwtConfig struct {
 	Signer jose.Signer
 }
 
+type webauthnConfig struct {
+	RPDisplayName string
+	RPID          string
+}
+
 // App holds dependencies and has methods implementing business logic
 type App struct {
 	Logger  *logrus.Entry
 	Storage storage.Storage
 
 	jwtConfig          *jwtConfig
+	webauthnConfig     *webauthnConfig
 	actuallySendEmails bool
 	ses                *ses.SES
 	emailConfig        seba.EmailConfig
@@ -47,7 +53,7 @@ func New(cfg seba.Config) (*App, error) {
 	}
 
 	for i, cl := range cfg.Clients {
-		if cl.GoogleConfig != nil {
+		if cl.GoogleGrantEnabled() {
 			cfg.Clients[i].GoogleConfig.Scopes = []string{"email"}
 			cfg.Clients[i].GoogleConfig.Endpoint = google.Endpoint
 		}
@@ -58,6 +64,7 @@ func New(cfg seba.Config) (*App, error) {
 		Storage: storage.NewDynamoStorage(cfg.AWSSession, cfg.AWSConfig, cfg.DynamoTableName),
 
 		jwtConfig:          jwtConfig,
+		webauthnConfig:     &webauthnConfig{RPDisplayName: cfg.WebauthnDisplayName, RPID: cfg.WebauthnID},
 		ses:                ses.New(cfg.AWSSession),
 		actuallySendEmails: cfg.ActuallySendEmails,
 		emailConfig:        cfg.EmailConfig,
