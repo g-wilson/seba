@@ -3,7 +3,7 @@
   "ModelMetadata": {
     "Author": "George Wilson",
     "DateCreated": "May 10, 2020, 07:29 PM",
-    "DateLastModified": "May 16, 2020, 06:24 PM",
+    "DateLastModified": "Jul 26, 2020, 01:27 PM",
     "Description": "Serverless Email-Based Authentication",
     "Version": "1.0"
   },
@@ -81,7 +81,10 @@
             "revoked_at",
             "client_id",
             "pkce_challenge"
-          ]
+          ],
+          "DataAccess": {
+            "MySql": {}
+          }
         },
         {
           "FacetName": "RefreshToken",
@@ -96,31 +99,25 @@
             "used_at",
             "client_id",
             "authentication_id"
-          ]
-        },
-        {
-          "FacetName": "Account",
-          "KeyAttributeAlias": {
-            "PartitionKeyAlias": "id",
-            "SortKeyAlias": "relation"
-          },
-          "TableData": [],
-          "NonKeyAttributes": [
-            "created_at",
-            "removed_at"
-          ]
+          ],
+          "DataAccess": {
+            "MySql": {}
+          }
         },
         {
           "FacetName": "User",
           "KeyAttributeAlias": {
             "PartitionKeyAlias": "id",
-            "SortKeyAlias": "account_id"
+            "SortKeyAlias": "user_id"
           },
           "TableData": [],
           "NonKeyAttributes": [
             "created_at",
             "removed_at"
-          ]
+          ],
+          "DataAccess": {
+            "MySql": {}
+          }
         },
         {
           "FacetName": "Email",
@@ -132,21 +129,10 @@
           "NonKeyAttributes": [
             "lookup_value",
             "removed_at"
-          ]
-        },
-        {
-          "FacetName": "Invite",
-          "KeyAttributeAlias": {
-            "PartitionKeyAlias": "id",
-            "SortKeyAlias": "account_id"
-          },
-          "TableData": [],
-          "NonKeyAttributes": [
-            "created_at",
-            "lookup_value",
-            "email",
-            "consumed_at"
-          ]
+          ],
+          "DataAccess": {
+            "MySql": {}
+          }
         },
         {
           "FacetName": "EmailDedupe",
@@ -154,7 +140,10 @@
             "PartitionKeyAlias": "email_hash",
             "SortKeyAlias": "email_dedupe_global"
           },
-          "TableData": []
+          "TableData": [],
+          "DataAccess": {
+            "MySql": {}
+          }
         }
       ],
       "GlobalSecondaryIndexes": [
