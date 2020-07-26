@@ -29,7 +29,7 @@ func NewDynamoStorage(awsSession *session.Session, awsConfig *aws.Config, tableN
 
 func (s *DynamoStorage) Setup() error {
 	schema := struct {
-		ID          string `dynamo:"id,hash"`
+		ID          string `dynamo:"id,hash"` // TODO: there is no way to set this as the range key for both of the other GSIs so it has to be done manually
 		Relation    string `dynamo:"relation,range" index:"relationLookup,hash"`
 		LookupValue string `dynamo:"lookup_value" index:"valueLookup,hash"`
 	}{}
@@ -63,6 +63,9 @@ func (s *DynamoStorage) CreateAuthentication(ctx context.Context, hashedCode, em
 	err = s.db.Table(s.table).
 		Put(ent).
 		RunWithContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("dynamo: CreateAuthentication: %w", err)
+	}
 
 	return
 }
@@ -72,38 +75,40 @@ func (s *DynamoStorage) GetAuthenticationByID(ctx context.Context, authenticatio
 
 	err = s.db.Table(s.table).
 		Get("id", authenticationID).
+		Range("relation", dynamo.BeginsWith, TypePrefixAuthentication).
 		OneWithContext(ctx, ent)
-
 	if err != nil {
 		if err == dynamo.ErrNotFound {
 			err = seba.ErrAuthnNotFound
+		} else {
+			err = fmt.Errorf("dynamo: GetAuthenticationByID: %w", err)
 		}
 	}
 
 	return
 }
 
-func (s *DynamoStorage) GetAuthenticationByHashedCode(ctx context.Context, hashedCode string) (ent *Authentication, err error) {
-	ent = &Authentication{}
+func (s *DynamoStorage) GetAuthenticationByHashedCode(ctx context.Context, hashedCode string) (*Authentication, error) {
+	ent := &Authentication{}
 
-	err = s.db.Table(s.table).
+	err := s.db.Table(s.table).
 		Get("lookup_value", hashedCode).
 		Index("valueLookup").
 		Range("id", dynamo.BeginsWith, TypePrefixAuthentication).
 		OneWithContext(ctx, ent)
-
 	if err != nil {
 		if err == dynamo.ErrNotFound {
-			err = seba.ErrAuthnNotFound
+			return nil, seba.ErrAuthnNotFound
 		}
 
-		return
+		return nil, fmt.Errorf("dynamo: GetAuthenticationByHashedCode: %w", err)
 	}
+
 	if ent.RevokedAt != nil {
 		return nil, seba.ErrAuthnNotFound
 	}
 
-	return
+	return ent, nil
 }
 
 func (s *DynamoStorage) SetAuthenticationVerified(ctx context.Context, authenticationID, email string) (err error) {
@@ -115,10 +120,11 @@ func (s *DynamoStorage) SetAuthenticationVerified(ctx context.Context, authentic
 		If("attribute_not_exists(verified_at)").
 		Set("verified_at", timestamp.Unix()).
 		RunWithContext(ctx)
-
 	if err != nil {
 		if strings.HasPrefix(err.Error(), dynamodb.ErrCodeConditionalCheckFailedException) {
 			err = seba.ErrAuthnAlreadyVerified
+		} else {
+			err = fmt.Errorf("dynamo: SetAuthenticationVerified: %w", err)
 		}
 	}
 
@@ -133,6 +139,9 @@ func (s *DynamoStorage) SetAuthenticationRevoked(ctx context.Context, authentica
 		Range("relation", email).
 		Set("revoked_at", timestamp.Unix()).
 		RunWithContext(ctx)
+	if err != nil {
+		return fmt.Errorf("dynamo: SetAuthenticationRevoked: %w", err)
+	}
 
 	return
 }
@@ -147,6 +156,9 @@ func (s *DynamoStorage) ListPendingAuthentications(ctx context.Context, email st
 		Filter("attribute_not_exists(verified_at)").
 		Filter("attribute_not_exists(revoked_at)").
 		AllWithContext(ctx, &authns)
+	if err != nil {
+		return nil, fmt.Errorf("dynamo: ListPendingAuthentications: %w", err)
+	}
 
 	return
 }
@@ -169,6 +181,9 @@ func (s *DynamoStorage) CreateRefreshToken(ctx context.Context, userID, clientID
 	err = s.db.Table(s.table).
 		Put(ent).
 		RunWithContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("dynamo: CreateRefreshToken: %w", err)
+	}
 
 	return
 }
@@ -181,10 +196,11 @@ func (s *DynamoStorage) GetRefreshTokenByHashedToken(ctx context.Context, hashed
 		Index("valueLookup").
 		Range("id", dynamo.BeginsWith, TypePrefixRefreshToken).
 		OneWithContext(ctx, ent)
-
 	if err != nil {
 		if err == dynamo.ErrNotFound {
 			err = seba.ErrRefreshTokenNotFound
+		} else {
+			err = fmt.Errorf("dynamo: GetRefreshTokenByHashedToken: %w", err)
 		}
 	}
 
@@ -200,49 +216,11 @@ func (s *DynamoStorage) SetRefreshTokenUsed(ctx context.Context, reftokID, userI
 		If("attribute_not_exists(used_at)").
 		Set("used_at", timestamp.Unix()).
 		RunWithContext(ctx)
-
 	if err != nil {
 		if strings.HasPrefix(err.Error(), dynamodb.ErrCodeConditionalCheckFailedException) {
 			err = seba.ErrRefreshTokenUsed
-		}
-	}
-
-	return
-}
-
-func (s *DynamoStorage) GetAccountByID(ctx context.Context, accountID string) (ent *Account, err error) {
-	ent = &Account{}
-
-	err = s.db.Table(s.table).
-		Get("id", accountID).
-		Range("relation", dynamo.Equal, accountID).
-		OneWithContext(ctx, ent)
-
-	if err != nil {
-		if err == dynamo.ErrNotFound {
-			err = seba.ErrAccountNotFound
-		}
-	}
-	if ent.RemovedAt != nil {
-		err = seba.ErrAccountNotFound
-	}
-
-	return
-}
-
-func (s *DynamoStorage) ListUsersByAccountID(ctx context.Context, accountID string) (res []User, err error) {
-	usrs := []User{}
-	res = []User{}
-
-	err = s.db.Table(s.table).
-		Get("relation", accountID).
-		Index("relationLookup").
-		Range("id", dynamo.BeginsWith, TypePrefixUser).
-		AllWithContext(ctx, &usrs)
-
-	for _, usr := range usrs {
-		if usr.RemovedAt == nil {
-			res = append(res, usr)
+		} else {
+			err = fmt.Errorf("dynamo: SetRefreshTokenUsed: %w", err)
 		}
 	}
 
@@ -254,79 +232,70 @@ func (s *DynamoStorage) GetUserByID(ctx context.Context, userID string) (ent *Us
 
 	err = s.db.Table(s.table).
 		Get("id", userID).
-		Range("relation", dynamo.BeginsWith, TypePrefixAccount).
+		Range("relation", dynamo.Equal, userID).
 		OneWithContext(ctx, ent)
-
 	if err != nil {
 		if err == dynamo.ErrNotFound {
-			err = seba.ErrUserNotFound
+			return nil, seba.ErrUserNotFound
 		}
-	}
-	if ent.RemovedAt != nil {
-		err = seba.ErrUserNotFound
+
+		return nil, fmt.Errorf("dynamo: GetUserByID: %w", err)
 	}
 
-	return
+	if ent.RemovedAt != nil {
+		return nil, seba.ErrUserNotFound
+	}
+
+	return ent, nil
 }
 
-func (s *DynamoStorage) GetUserByEmail(ctx context.Context, email string) (ent *User, err error) {
+func (s *DynamoStorage) GetUserByEmail(ctx context.Context, email string) (*User, error) {
 	emailEnt := &Email{}
-	ent = &User{}
+	ent := &User{}
 
-	err = s.db.Table(s.table).
+	err := s.db.Table(s.table).
 		Get("lookup_value", email).
 		Index("valueLookup").
 		Range("id", dynamo.BeginsWith, TypePrefixEmail).
 		OneWithContext(ctx, emailEnt)
-
 	if err != nil {
 		if err == dynamo.ErrNotFound {
-			err = seba.ErrUserNotFound
+			return nil, seba.ErrUserNotFound
 		}
+
+		return nil, fmt.Errorf("dynamo: GetUserByEmail: %w", err)
 	}
-	if ent.RemovedAt != nil {
-		err = seba.ErrUserNotFound
+	if emailEnt.RemovedAt != nil {
+		return nil, seba.ErrUserNotFound
 	}
 
 	err = s.db.Table(s.table).
 		Get("id", emailEnt.UserID).
-		Range("relation", dynamo.BeginsWith, TypePrefixAccount).
+		Range("relation", dynamo.BeginsWith, TypePrefixUser).
 		OneWithContext(ctx, ent)
+	if err != nil {
+		if err == dynamo.ErrNotFound {
+			return nil, seba.ErrUserNotFound
+		}
 
-	if err != nil && err == dynamo.ErrNotFound {
-		err = seba.ErrUserNotFound
+		return nil, fmt.Errorf("dynamo: GetUserByEmail: %w", err)
 	}
+
 	if ent.RemovedAt != nil {
-		err = seba.ErrUserNotFound
+		return nil, seba.ErrUserNotFound
 	}
 
-	return
+	return ent, nil
 }
 
-func (s *DynamoStorage) CreateAccount(ctx context.Context) (ent *Account, err error) {
+func (s *DynamoStorage) CreateUserWithEmail(ctx context.Context, emailAddress string) (*User, error) {
 	timestamp := time.Now().UTC()
+	userID := generateID(TypePrefixUser)
 
-	ent = &Account{
-		ID:        generateID(TypePrefixAccount),
+	user := &User{
+		ID:        userID,
 		CreatedAt: timestamp,
-	}
-
-	ent.Relation = ent.ID
-
-	err = s.db.Table(s.table).
-		Put(ent).
-		RunWithContext(ctx)
-
-	return
-}
-
-func (s *DynamoStorage) CreateUserWithEmail(ctx context.Context, accountID, emailAddress string) (user *User, err error) {
-	timestamp := time.Now().UTC()
-
-	user = &User{
-		ID:        generateID(TypePrefixUser),
-		CreatedAt: timestamp,
-		AccountID: accountID,
+		Relation:  userID,
 	}
 
 	email := &Email{
@@ -352,68 +321,18 @@ func (s *DynamoStorage) CreateUserWithEmail(ctx context.Context, accountID, emai
 		Put(tbl.Put(email)).
 		Put(tbl.Put(dedupeRecord).If("attribute_not_exists(id)"))
 
-	err = tx.RunWithContext(ctx)
-
+	err := tx.RunWithContext(ctx)
 	if err != nil {
 		if aErr, ok := err.(awserr.Error); ok {
 			if strings.Contains(aErr.Error(), "ConditionalCheckFailed") {
-				err = seba.ErrEmailTaken
+				return nil, seba.ErrEmailTaken
 			}
 		}
+
+		return nil, fmt.Errorf("dynamo: CreateUserWithEmail: %w", err)
 	}
 
-	return
-}
-
-func (s *DynamoStorage) CreateInvite(ctx context.Context, accountID, email, token string) (ent *Invite, err error) {
-	timestamp := time.Now().UTC()
-
-	ent = &Invite{
-		ID:        generateID(TypePrefixInvite),
-		CreatedAt: timestamp,
-		Token:     token,
-		AccountID: accountID,
-		Email:     email,
-	}
-
-	err = s.db.Table(s.table).
-		Put(ent).
-		RunWithContext(ctx)
-
-	return
-}
-
-func (s *DynamoStorage) GetInviteByHashedToken(ctx context.Context, token string) (ent *Invite, err error) {
-	ent = &Invite{}
-
-	err = s.db.Table(s.table).
-		Get("lookup_value", token).
-		Index("valueLookup").
-		Range("id", dynamo.BeginsWith, TypePrefixInvite).
-		OneWithContext(ctx, ent)
-
-	if err != nil && err == dynamo.ErrNotFound {
-		err = seba.ErrInviteNotFound
-	}
-
-	return
-}
-
-func (s *DynamoStorage) SetInviteUsed(ctx context.Context, inviteID, accountID string) (err error) {
-	timestamp := time.Now().UTC()
-
-	err = s.db.Table(s.table).
-		Update("id", inviteID).
-		Range("relation", accountID).
-		If("attribute_not_exists(consumed_at)").
-		Set("consumed_at", timestamp.Unix()).
-		RunWithContext(ctx)
-
-	if err != nil && strings.HasPrefix(err.Error(), dynamodb.ErrCodeConditionalCheckFailedException) {
-		err = seba.ErrInviteConsumed
-	}
-
-	return
+	return user, nil
 }
 
 func (s *DynamoStorage) ListUserEmails(ctx context.Context, userID string) (ems []Email, err error) {
@@ -424,6 +343,9 @@ func (s *DynamoStorage) ListUserEmails(ctx context.Context, userID string) (ems 
 		Index("relationLookup").
 		Range("id", dynamo.BeginsWith, TypePrefixEmail).
 		AllWithContext(ctx, &allems)
+	if err != nil {
+		return nil, fmt.Errorf("dynamo: ListUserEmails: %w", err)
+	}
 
 	ems = []Email{}
 	for _, em := range allems {

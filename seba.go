@@ -1,8 +1,11 @@
 package seba
 
 import (
+	"text/template"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/g-wilson/runtime"
 	"github.com/g-wilson/runtime/hand"
 	"golang.org/x/oauth2"
@@ -13,7 +16,6 @@ const (
 	ScopeSebaAdmin = "seba:admin"
 
 	GrantTypeEmailToken   = "email_token"
-	GrantTypeInviteToken  = "invite_token"
 	GrantTypeRefreshToken = "refresh_token"
 	GrantTypeGoogle       = "google_authz_code"
 
@@ -48,13 +50,34 @@ var (
 
 	ErrUserNotFound      = hand.New("user_not_found")
 	ErrUserAlreadyExists = hand.New("user_already_exists")
-
-	ErrAccountNotFound = hand.New("account_not_found")
-
-	ErrInviteExpired  = hand.New("invite_expired")
-	ErrInviteNotFound = hand.New("invite_not_found")
-	ErrInviteConsumed = hand.New("invite_already_consumed")
 )
+
+// Config type is used as the argument to the app constructor
+type Config struct {
+	LogLevel  string
+	LogFormat string
+
+	AWSConfig       *aws.Config
+	AWSSession      *session.Session
+	DynamoTableName string
+
+	ActuallySendEmails bool
+	EmailConfig        EmailConfig
+
+	JWTPrivateKey string
+	JWTIssuer     string
+
+	Clients []Client
+}
+
+// EmailConfig type is a group of settings for emails
+type EmailConfig struct {
+	DefaultReplyAddress string
+	DefaultFromAddress  string
+
+	AuthnEmailSubject  string
+	AuthnEmailTemplate *template.Template
+}
 
 // Client represents one of your applications, e.g. your iOS app
 type Client struct {
@@ -70,9 +93,6 @@ type Client struct {
 	// RefreshTokenTTL is a duration during which a refresh_token grant will be valid. Set to zero to disable refresh_token grant type.
 	RefreshTokenTTL time.Duration
 
-	// EnableInviteConsumption enables invite_token grant type
-	EnableInviteConsumption bool
-
 	// GoogleConfig is used to create the google API client to exchange the authorization code
 	GoogleConfig *oauth2.Config
 }
@@ -86,11 +106,7 @@ func (c *Client) RefreshGrantEnabed() bool {
 }
 
 func (c *Client) EmailGrantEnabled() bool {
-	return c.EmailAuthenticationURL == ""
-}
-
-func (c *Client) InviteGrantEnabled() bool {
-	return c.EnableInviteConsumption
+	return c.EmailAuthenticationURL != ""
 }
 
 type Credentials struct {
@@ -115,69 +131,4 @@ type SendAuthenticationEmailRequest struct {
 	State         string `json:"state"`
 	ClientID      string `json:"client_id"`
 	PKCEChallenge string `json:"pkce_challenge"`
-}
-
-type ConsumeInviteRequest struct {
-	Token string `json:"token"`
-}
-
-type ConsumeInviteResponse struct {
-	UserID    string `json:"user_id"`
-	AccountID string `json:"account_id"`
-	Email     string `json:"email"`
-}
-
-type CreateAccountResponse struct {
-	AccountID string `json:"account_id"`
-}
-
-type SendInviteEmailRequest struct {
-	Email     string `json:"email"`
-	AccountID string `json:"account_id"`
-}
-
-type SendInviteEmailResponse struct {
-	InviteID string `json:"invite_id"`
-}
-
-type GetAccountRequest struct {
-	AccountID string `json:"account_id"`
-}
-
-type GetAccountResponse struct {
-	ID        string        `json:"id"`
-	CreatedAt time.Time     `json:"created_at"`
-	Users     []AccountUser `json:"users"`
-}
-
-type AccountUser struct {
-	ID        string    `json:"id"`
-	CreatedAt time.Time `json:"created_at"`
-}
-
-type GetUserByEmailRequest struct {
-	Email string `json:"email"`
-}
-
-type GetUserByEmailResponse struct {
-	ID        string      `json:"id"`
-	CreatedAt time.Time   `json:"created_at"`
-	AccountID string      `json:"account_id"`
-	Emails    []UserEmail `json:"emails"`
-}
-
-type GetUserRequest struct {
-	UserID string `json:"user_id"`
-}
-
-type GetUserResponse struct {
-	ID        string      `json:"id"`
-	CreatedAt time.Time   `json:"created_at"`
-	AccountID string      `json:"account_id"`
-	Emails    []UserEmail `json:"emails"`
-}
-
-type UserEmail struct {
-	CreatedAt time.Time `json:"created_at"`
-	Value     string    `json:"value"`
 }

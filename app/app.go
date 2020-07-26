@@ -1,48 +1,18 @@
-package auth
+package app
 
 import (
 	"errors"
 	"fmt"
-	"html/template"
 
 	"github.com/g-wilson/seba"
-	"github.com/g-wilson/seba/storage"
+	"github.com/g-wilson/seba/internal/storage"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ses"
 	"github.com/g-wilson/runtime/logger"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/oauth2/google"
 	jose "gopkg.in/square/go-jose.v2"
 )
-
-// Config type is used as the argument to the app constructor
-type Config struct {
-	LogLevel  string
-	LogFormat string
-
-	AWSConfig       *aws.Config
-	AWSSession      *session.Session
-	DynamoTableName string
-
-	ActuallySendEmails bool
-	EmailConfig        EmailConfig
-
-	JWTPrivateKey string
-	JWTIssuer     string
-
-	Clients []seba.Client
-}
-
-// EmailConfig type is a group of settings for emails
-type EmailConfig struct {
-	DefaultReplyAddress string
-	DefaultFromAddress  string
-
-	AuthnEmailSubject  string
-	AuthnEmailTemplate *template.Template
-}
 
 type jwtConfig struct {
 	Issuer string
@@ -57,14 +27,14 @@ type App struct {
 	jwtConfig          *jwtConfig
 	actuallySendEmails bool
 	ses                *ses.SES
-	emailConfig        EmailConfig
+	emailConfig        seba.EmailConfig
 
 	clients     []seba.Client
 	clientsByID map[string]seba.Client
 }
 
 // New creates a new SEBA auth service app instance
-func New(cfg Config) (*App, error) {
+func New(cfg seba.Config) (*App, error) {
 	appLogger := logger.Create("seba-auth", cfg.LogFormat, cfg.LogLevel)
 
 	jwtConfig, err := createJWTConfig(cfg.JWTPrivateKey, cfg.JWTIssuer)

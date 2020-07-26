@@ -11,10 +11,9 @@ var ctxkey = identityContextKey("sebaidentity")
 
 // Identity holds attributes of the bearer who is currently authenticated with an access token
 type Identity struct {
-	UserID    string
-	AccountID string
-	ClientID  string
-	Scopes    []string
+	UserID   string
+	ClientID string
+	Scopes   []string
 }
 
 // HasScope returns true if the bearer does possess a given scope
@@ -45,9 +44,6 @@ func SetIdentity(ctx context.Context, claims map[string]interface{}) context.Con
 
 	if sub, ok := claims["sub"].(string); ok {
 		b.UserID = sub
-	}
-	if aid, ok := claims["aid"].(string); ok {
-		b.AccountID = aid
 	}
 	if cid, ok := claims["cid"].(string); ok {
 		b.ClientID = cid

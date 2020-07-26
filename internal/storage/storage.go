@@ -12,7 +12,6 @@ const (
 	TypePrefixAuthentication = "authn"
 	TypePrefixRefreshToken   = "reftok"
 	TypePrefixInvite         = "invite"
-	TypePrefixAccount        = "account"
 	TypePrefixUser           = "user"
 	TypePrefixEmail          = "email"
 )
@@ -42,19 +41,12 @@ type RefreshToken struct {
 	AuthenticationID *string    `json:"authentication_id" dynamo:"authentication_id"`
 }
 
-type Account struct {
+type User struct {
 	ID        string     `json:"id" dynamo:"id"`
 	CreatedAt time.Time  `json:"created_at" dynamo:"created_at,unixtime"`
 	RemovedAt *time.Time `json:"removed_at" dynamo:"removed_at,unixtime"`
 
 	Relation string `json:"-" dynamo:"relation"` // urgh
-}
-
-type User struct {
-	ID        string     `json:"id" dynamo:"id"`
-	AccountID string     `json:"account_id" dynamo:"relation"`
-	CreatedAt time.Time  `json:"created_at" dynamo:"created_at,unixtime"`
-	RemovedAt *time.Time `json:"removed_at" dynamo:"removed_at,unixtime"`
 }
 
 type Email struct {
@@ -63,15 +55,6 @@ type Email struct {
 	UserID    string     `json:"user_id" dynamo:"relation"`
 	CreatedAt time.Time  `json:"created_at" dynamo:"created_at,unixtime"`
 	RemovedAt *time.Time `json:"removed_at" dynamo:"removed_at,unixtime"`
-}
-
-type Invite struct {
-	ID         string     `json:"id" dynamo:"id"`
-	AccountID  string     `json:"account_id" dynamo:"relation"`
-	CreatedAt  time.Time  `json:"created_at" dynamo:"created_at,unixtime"`
-	Token      string     `json:"-" dynamo:"lookup_value"`
-	Email      string     `json:"email" dynamo:"email"`
-	ConsumedAt *time.Time `json:"consumed_at" dynamo:"consumed_at,unixtime"`
 }
 
 type Storage interface {
@@ -88,16 +71,8 @@ type Storage interface {
 	GetRefreshTokenByHashedToken(ctx context.Context, hashedToken string) (ent *RefreshToken, err error)
 	SetRefreshTokenUsed(ctx context.Context, reftokID, userID string) (err error)
 
-	GetAccountByID(ctx context.Context, accountID string) (ent *Account, err error)
-	CreateAccount(ctx context.Context) (ent *Account, err error)
-	ListUsersByAccountID(ctx context.Context, accountID string) (res []User, err error)
-
 	GetUserByID(ctx context.Context, userID string) (ent *User, err error)
 	GetUserByEmail(ctx context.Context, email string) (ent *User, err error)
 	ListUserEmails(ctx context.Context, userID string) (ems []Email, err error)
-	CreateUserWithEmail(ctx context.Context, accountID, emailAddress string) (user *User, err error)
-
-	CreateInvite(ctx context.Context, accountID, email, token string) (ent *Invite, err error)
-	GetInviteByHashedToken(ctx context.Context, token string) (ent *Invite, err error)
-	SetInviteUsed(ctx context.Context, inviteID, accountID string) (err error)
+	CreateUserWithEmail(ctx context.Context, emailAddress string) (user *User, err error)
 }

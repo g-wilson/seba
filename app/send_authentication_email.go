@@ -1,4 +1,4 @@
-package auth
+package app
 
 import (
 	"bytes"
@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/g-wilson/seba"
-	"github.com/g-wilson/seba/token"
+	"github.com/g-wilson/seba/internal/token"
 
 	"github.com/aws/aws-sdk-go/service/ses"
 	"github.com/g-wilson/runtime/ctxtools"

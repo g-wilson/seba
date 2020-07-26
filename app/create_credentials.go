@@ -1,4 +1,4 @@
-package auth
+package app
 
 import (
 	"context"
@@ -6,41 +6,50 @@ import (
 	"time"
 
 	"github.com/g-wilson/seba"
-	"github.com/g-wilson/seba/storage"
-	"github.com/g-wilson/seba/token"
+	"github.com/g-wilson/seba/internal/storage"
+	"github.com/g-wilson/seba/internal/token"
 
 	"gopkg.in/square/go-jose.v2/jwt"
 )
 
+var (
+	// UserCredentialsTTL is the duration of validity for a user access token
+	UserCredentialsTTL = 60 * time.Minute
+
+	// BasicCredentialsTTL is the duration of validity for a basic access token
+	BasicCredentialsTTL = 86400 * 365 * time.Second
+)
+
+// AccessTokenClaims type is used to marshal the access token JWT claims payload
 type AccessTokenClaims struct {
-	AccountID string `json:"aid"`
-	ClientID  string `json:"cid"`
-	Scope     string `json:"scope"`
+	ClientID string `json:"cid"`
+	Scope    string `json:"scope"`
 
 	jwt.Claims
 }
 
+// IDTokenClaims type is used to marshal the id token JWT claims payload
 type IDTokenClaims struct {
-	Emails    []string `json:"emails"`
-	AccountID string   `json:"aid"`
+	Emails []string `json:"emails"`
 
 	jwt.Claims
 }
 
-func (a *App) CreateCredentials(ctx context.Context, user *storage.User, client seba.Client, authnID *string) (creds *seba.Credentials, err error) {
+// CreateUserCredentials creates and signs a JWT for the provided user, client and authentication ID
+// Scopes are always defined on the client config. oAuth style scope granting is not supported.
+func (a *App) CreateUserCredentials(ctx context.Context, user *storage.User, client seba.Client, authnID *string) (creds *seba.Credentials, err error) {
 	basicClaims := jwt.Claims{
 		Subject:   user.ID,
 		Issuer:    a.jwtConfig.Issuer,
 		Audience:  jwt.Audience{seba.APIGatewayClient},
-		Expiry:    jwt.NewNumericDate(time.Now().UTC().Add(60 * time.Minute)),
+		Expiry:    jwt.NewNumericDate(time.Now().UTC().Add(UserCredentialsTTL)),
 		IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
 		NotBefore: jwt.NewNumericDate(time.Now().UTC()),
 	}
 	claims := &AccessTokenClaims{
-		AccountID: user.AccountID,
-		ClientID:  client.ID,
-		Scope:     strings.Join(client.DefaultScopes, " "),
-		Claims:    basicClaims,
+		ClientID: client.ID,
+		Scope:    strings.Join(client.DefaultScopes, " "),
+		Claims:   basicClaims,
 	}
 	accessToken, err := jwt.Signed(a.jwtConfig.Signer).
 		Claims(claims).
@@ -60,9 +69,8 @@ func (a *App) CreateCredentials(ctx context.Context, user *storage.User, client 
 
 	idToken, err := jwt.Signed(a.jwtConfig.Signer).
 		Claims(&IDTokenClaims{
-			Emails:    strEmails,
-			AccountID: user.AccountID,
-			Claims:    basicClaims,
+			Emails: strEmails,
+			Claims: basicClaims,
 		}).
 		CompactSerialize()
 	if err != nil {
@@ -93,13 +101,14 @@ func (a *App) CreateCredentials(ctx context.Context, user *storage.User, client 
 	return creds, nil
 }
 
-// CreateClientAccessToken can be used to mint a one-off access token. Typical usage would be for local development or for service-to-service auth.
-func (a *App) CreateClientAccessToken(subject string, scopes []string) (string, error) {
+// CreateBasicCredentials creates and signs a JWT for a provided subject and with a provided set of scopes
+// Current usage is for local development or for service-to-service auth
+func (a *App) CreateBasicCredentials(subject string, scopes []string) (string, error) {
 	basicClaims := jwt.Claims{
 		Subject:   subject,
 		Issuer:    a.jwtConfig.Issuer,
 		Audience:  jwt.Audience{seba.APIGatewayClient},
-		Expiry:    jwt.NewNumericDate(time.Now().UTC().Add(86400 * 365 * time.Second)),
+		Expiry:    jwt.NewNumericDate(time.Now().UTC().Add(BasicCredentialsTTL)),
 		IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
 		NotBefore: jwt.NewNumericDate(time.Now().UTC()),
 	}

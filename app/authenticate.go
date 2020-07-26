@@ -1,4 +1,4 @@
-package auth
+package app
 
 import (
 	"context"
@@ -10,11 +10,11 @@ import (
 
 	"github.com/g-wilson/seba"
 
-	"github.com/g-wilson/runtime/hand"
 	"golang.org/x/oauth2"
 	"gopkg.in/square/go-jose.v2/jwt"
 )
 
+// Authenticate is the RPC handler for authentication endpoint
 func (a *App) Authenticate(ctx context.Context, req *seba.AuthenticateRequest) (res *seba.AuthenticateResponse, err error) {
 	client, ok := a.clientsByID[req.ClientID]
 	if !ok {
@@ -26,8 +26,6 @@ func (a *App) Authenticate(ctx context.Context, req *seba.AuthenticateRequest) (
 	switch req.GrantType {
 	case seba.GrantTypeEmailToken:
 		creds, err = a.useEmailToken(ctx, req.Code, client, req.PKCEVerifier)
-	case seba.GrantTypeInviteToken:
-		creds, err = a.useInviteToken(ctx, req.Code, client)
 	case seba.GrantTypeRefreshToken:
 		creds, err = a.useRefreshToken(ctx, req.Code, client)
 	case seba.GrantTypeGoogle:
@@ -84,7 +82,7 @@ func (a *App) useEmailToken(ctx context.Context, token string, client seba.Clien
 		return nil, err
 	}
 
-	creds, err = a.CreateCredentials(ctx, user, client, &authn.ID)
+	creds, err = a.CreateUserCredentials(ctx, user, client, &authn.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +119,7 @@ func (a *App) useRefreshToken(ctx context.Context, token string, client seba.Cli
 		return nil, err
 	}
 
-	creds, err := a.CreateCredentials(ctx, user, client, rt.AuthenticationID)
+	creds, err := a.CreateUserCredentials(ctx, user, client, rt.AuthenticationID)
 	if err != nil {
 		return nil, err
 	}
@@ -132,43 +130,6 @@ func (a *App) useRefreshToken(ctx context.Context, token string, client seba.Cli
 	}
 
 	return creds, nil
-}
-
-func (a *App) useInviteToken(ctx context.Context, token string, client seba.Client) (*seba.Credentials, error) {
-	if !client.InviteGrantEnabled() {
-		return nil, seba.ErrNotSupportedByClient
-	}
-
-	invite, err := a.Storage.GetInviteByHashedToken(ctx, token)
-	if err != nil {
-		return nil, err
-	}
-
-	if invite.CreatedAt.Add(7 * 24 * time.Hour).Before(time.Now()) {
-		return nil, seba.ErrInviteExpired
-	}
-
-	user, err := a.Storage.GetUserByEmail(ctx, invite.Email)
-	if err != nil && !hand.Matches(err, seba.ErrUserNotFound) {
-		return nil, err
-	}
-	if user != nil {
-		if user.AccountID != invite.AccountID {
-			return nil, seba.ErrUserAlreadyExists
-		}
-	} else {
-		user, err = a.Storage.CreateUserWithEmail(ctx, invite.AccountID, invite.Email)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	err = a.Storage.SetInviteUsed(ctx, invite.ID, invite.AccountID)
-	if err != nil {
-		return nil, err
-	}
-
-	return a.CreateCredentials(ctx, user, client, nil)
 }
 
 func (a *App) useGoogleToken(ctx context.Context, code string, client seba.Client) (*seba.Credentials, error) {
@@ -209,5 +170,5 @@ func (a *App) useGoogleToken(ctx context.Context, code string, client seba.Clien
 		return nil, err
 	}
 
-	return a.CreateCredentials(ctx, user, client, nil)
+	return a.CreateUserCredentials(ctx, user, client, nil)
 }
