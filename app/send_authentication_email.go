@@ -62,7 +62,7 @@ func (a *App) SendAuthenticationEmail(ctx context.Context, req *seba.SendAuthent
 		logger.FromContext(ctx).Entry().
 			WithError(err).
 			WithField("email_template", "authentication").
-			Error("invite email template failed")
+			Error("authn email template failed")
 
 		return seba.ErrCreatingEmail
 	}

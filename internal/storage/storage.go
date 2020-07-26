@@ -11,7 +11,6 @@ import (
 const (
 	TypePrefixAuthentication = "authn"
 	TypePrefixRefreshToken   = "reftok"
-	TypePrefixInvite         = "invite"
 	TypePrefixUser           = "user"
 	TypePrefixEmail          = "email"
 )

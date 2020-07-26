@@ -57,7 +57,8 @@ package main
 import (
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/g-wilson/runtime"
-	"github.com/g-wilson/seba/auth"
+	"github.com/g-wilson/seba"
+	sebaApp "github.com/g-wilson/seba/app"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )
@@ -71,7 +72,7 @@ func main() {
 		return nil, fmt.Errorf("error compiling template: %w", err)
 	}
 
-	app, err := auth.New(auth.Config{
+	sebaInstance, err := sebaApp.New(seba.Config{
 		LogLevel:  os.Getenv("LOG_LEVEL"),
 		LogFormat: os.Getenv("LOG_FORMAT"),
 
@@ -80,7 +81,7 @@ func main() {
 		DynamoTableName: os.Getenv("AUTH_DYNAMO_TABLE_NAME"),
 
 		ActuallySendEmails: (os.Getenv("ACTUALLY_SEND_EMAILS") == "true"),
-		EmailConfig: auth.EmailConfig{
+		EmailConfig: seba.EmailConfig{
 			DefaultFromAddress:  "auth@example.com",
 			DefaultReplyAddress: "security@example.com",
 			AuthnEmailSubject:   "Sign in link",
@@ -113,7 +114,7 @@ func main() {
 		panic(err)
 	}
 
-	lambda.Start(runtime.WrapRPCHTTPGateway(app.RPC()))
+	lambda.Start(runtime.WrapRPCHTTPGateway(sebaInstance.RPC()))
 }
 ```
 
@@ -212,7 +213,6 @@ If you use Go, you can use the included `idcontext` package which provides two u
 
 ```
 {
-  "aid": "account_8e488c10-b469-4675-846b-f980e29b951d",
   "aud": [
     "client_awsapigateway"
   ],
@@ -226,9 +226,9 @@ If you use Go, you can use the included `idcontext` package which provides two u
 }
 ```
 
-The access token provides two identifiers which you can use in your application, a `user_id` and an `account_id`. You should use the `account_id` as a foreign key in your application, not the `user_id`. This will allow you to support transferring accounts, or supporting multiple users per account (teams).
+The access token provides a user ID as the subject, which you can use in your application.
 
-It is assumed you will use your own separate for storing account data related to your application. SEBA is not designed to be extended for a full-featured user profile or team management system.
+It is assumed you will use your own separate for storing account data related to your application. SEBA is not designed to provide full-featured user profile or team management system, you can build that on top of the basic authenticated identity flows.
 
 The scope claim can be used for basic permissions checks. At the moment scopes are always determined by the client configuration, they are not part of the oAuth grant. The value is a space-delimited list of strings.
 
@@ -236,7 +236,6 @@ The scope claim can be used for basic permissions checks. At the moment scopes a
 
 ```
 {
-  "aid": "account_8e488c10-b469-4675-846b-f980e29b951d",
   "aud": [
     "client_awsapigateway"
   ],
@@ -251,4 +250,4 @@ The scope claim can be used for basic permissions checks. At the moment scopes a
 }
 ```
 
-The identity token provides the `user_id` and `account_id` in the same way as the access token, but it additionally provides the email addresses verified by the user.
+The identity token provides the `user_id` as the subject in the same way as the access token, but it additionally provides the email addresses verified by the user.
