@@ -9,7 +9,9 @@ import (
 	"time"
 
 	"github.com/g-wilson/seba"
+	"github.com/g-wilson/seba/internal/storage"
 
+	"github.com/g-wilson/runtime/hand"
 	"golang.org/x/oauth2"
 	"gopkg.in/square/go-jose.v2/jwt"
 )
@@ -77,7 +79,7 @@ func (a *App) useEmailToken(ctx context.Context, token string, client seba.Clien
 		return nil, seba.ErrPKCEChallengeFailed
 	}
 
-	user, err := a.Storage.GetUserByEmail(ctx, authn.Email)
+	user, err := a.getOrCreateUserByEmail(ctx, authn.Email)
 	if err != nil {
 		return nil, err
 	}
@@ -165,10 +167,34 @@ func (a *App) useGoogleToken(ctx context.Context, code string, client seba.Clien
 		return nil, seba.ErrEmailNotVerified.WithMessage("Email address must be verified before using Google")
 	}
 
-	user, err := a.Storage.GetUserByEmail(ctx, cl.Email)
+	user, err := a.getOrCreateUserByEmail(ctx, cl.Email)
 	if err != nil {
 		return nil, err
 	}
 
 	return a.CreateUserCredentials(ctx, user, client, nil)
+}
+
+func (a *App) getOrCreateUserByEmail(ctx context.Context, email string) (user *storage.User, err error) {
+	createUser := false
+
+	user, err = a.Storage.GetUserByEmail(ctx, email)
+	if err != nil {
+		if hand.Matches(err, seba.ErrUserNotFound) {
+			createUser = true
+		} else {
+			return
+		}
+	}
+
+	if createUser {
+		newUser, err := a.Storage.CreateUserWithEmail(ctx, email)
+		if err != nil {
+			return nil, err
+		}
+
+		user = newUser
+	}
+
+	return
 }
