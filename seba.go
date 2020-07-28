@@ -51,6 +51,8 @@ var (
 
 	ErrUserNotFound      = hand.New("user_not_found")
 	ErrUserAlreadyExists = hand.New("user_already_exists")
+
+	ErrWebauthnCredentialNotFound = hand.New("webauthn_credential_not_found")
 )
 
 // Config type is used as the argument to the app constructor
