@@ -52,6 +52,7 @@ var (
 	ErrUserNotFound      = hand.New("user_not_found")
 	ErrUserAlreadyExists = hand.New("user_already_exists")
 
+	ErrWebauthnChallengeNotFound  = hand.New("webauthn_challenge_not_found")
 	ErrWebauthnCredentialNotFound = hand.New("webauthn_credential_not_found")
 )
 

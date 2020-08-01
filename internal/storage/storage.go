@@ -9,10 +9,12 @@ import (
 )
 
 const (
-	TypePrefixAuthentication = "authn"
-	TypePrefixRefreshToken   = "reftok"
-	TypePrefixUser           = "user"
-	TypePrefixEmail          = "email"
+	TypePrefixAuthentication     = "authn"
+	TypePrefixRefreshToken       = "reftok"
+	TypePrefixUser               = "user"
+	TypePrefixEmail              = "email"
+	TypePrefixWebauthnChallenge  = "wanchal"
+	TypePrefixWebauthnCredential = "wancred"
 )
 
 func generateID(typePrefix string) string {
@@ -62,21 +64,20 @@ type WebauthnCredential struct {
 	CreatedAt       time.Time  `json:"created_at" dynamo:"created_at,unixtime"`
 	RemovedAt       *time.Time `json:"removed_at" dynamo:"removed_at,unixtime"`
 	Name            string     `json:"name" dynamo:"name"`
-	CredentialID    []byte     `json:"credential_id" dynamo:"credential_id"`
+	CredentialID    []byte     `json:"credential_id" dynamo:"lookup_value"`
 	PublicKey       []byte     `json:"public_key" dynamo:"public_key"`
 	AttestationType string     `json:"attestation_type" dynamo:"attestation_type"`
 	AAGUID          []byte     `json:"aaguid" dynamo:"aaguid"`
-	SignCount       uint32     `json:"sign_count" dynamo:"sign_count"`
+	SignCount       int        `json:"sign_count" dynamo:"sign_count"`
 }
 
 type WebauthnChallenge struct {
-	ID             string    `json:"id" dynamo:"id"`
-	RefreshTokenID string    `json:"refresh_token_id" dynamo:"relation"`
-	CreatedAt      time.Time `json:"created_at" dynamo:"created_at,unixtime"`
-	ExpiresAt      time.Time `json:"expires_at" dynamo:"expires_at"`
-	ChallengeType  string    `json:"challenge_type" dynamo:"challenge_type"`
-	Challenge      string    `json:"challenge" dynamo:"challenge"`
-	CredentialIDs  [][]byte  `json:"credential_ids" dynamo:"credential_ids,set"`
+	ID            string    `json:"id" dynamo:"id"`
+	SessionID     string    `json:"refresh_token_id" dynamo:"relation"`
+	CreatedAt     time.Time `json:"created_at" dynamo:"created_at,unixtime"`
+	ChallengeType string    `json:"challenge_type" dynamo:"challenge_type"`
+	Challenge     string    `json:"challenge" dynamo:"challenge"`
+	CredentialIDs [][]byte  `json:"credential_ids" dynamo:"credential_ids,set"`
 }
 
 type Storage interface {
@@ -98,12 +99,12 @@ type Storage interface {
 	ListUserEmails(ctx context.Context, userID string) ([]*Email, error)
 	CreateUserWithEmail(ctx context.Context, emailAddress string) (*User, error)
 
-	CreateWebauthnRegistrationChallenge(ctx context.Context, refTokID, challenge string) error
-	CreateWebauthnVerificationChallenge(ctx context.Context, refTokID, challenge string, credentialIDs [][]byte) error
-	GetWebauthnChallenge(ctx context.Context, refTokID string) (*WebauthnChallenge, error)
+	CreateWebauthnRegistrationChallenge(ctx context.Context, sessionID, challenge string) (*WebauthnChallenge, error)
+	CreateWebauthnVerificationChallenge(ctx context.Context, sessionID, challenge string, credentialIDs [][]byte) (*WebauthnChallenge, error)
+	GetWebauthnChallenge(ctx context.Context, sessionID string) (*WebauthnChallenge, error)
 
 	ListUserWebauthnCredentials(ctx context.Context, userID string) ([]*WebauthnCredential, error)
 	GetWebauthnCredentialByCredentialID(ctx context.Context, credentialID string) (*WebauthnCredential, error)
 	CreateWebAuthnCredential(ctx context.Context, userID, name, attestationType string, credentialID, publicKey, AAGUID []byte, signCount int) error
-	UpdateWebauthnCredential(ctx context.Context, credentialID string, signCount uint32) error
+	UpdateWebauthnCredential(ctx context.Context, credentialID string, signCount int) error
 }

@@ -169,7 +169,7 @@ func (a *App) CompleteWebauthnRegistration(ctx context.Context, req *seba.Comple
 	if err != nil {
 		return nil, err
 	}
-	if storedSession.ExpiresAt.Add(1 * time.Minute).Before(time.Now()) {
+	if storedSession.CreatedAt.Add(1 * time.Minute).Before(time.Now()) {
 		return nil, hand.New("webauthn_session_expired")
 	}
 
@@ -249,6 +249,9 @@ func (a *App) CompleteWebauthnVerification(ctx context.Context, req *seba.Comple
 	storedSession, err := a.Storage.GetWebauthnChallenge(ctx, userContext.RefreshToken.ID)
 	if err != nil {
 		return nil, err
+	}
+	if storedSession.CreatedAt.Add(1 * time.Minute).Before(time.Now()) {
+		return nil, hand.New("webauthn_session_expired")
 	}
 
 	sessionData := webauthn.SessionData{
