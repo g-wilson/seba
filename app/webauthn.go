@@ -134,8 +134,9 @@ func (a *App) StartWebauthnRegistration(ctx context.Context, req *seba.StartWeba
 
 	pubKeyOpts, sessionData, err := wanContext.BeginRegistration(userContext, func(opts *protocol.PublicKeyCredentialCreationOptions) {
 		opts.AuthenticatorSelection = protocol.AuthenticatorSelection{
-			RequireResidentKey: ptrBool(false),
-			UserVerification:   protocol.VerificationDiscouraged,
+			RequireResidentKey:      ptrBool(false),
+			UserVerification:        protocol.VerificationDiscouraged,
+			AuthenticatorAttachment: protocol.CrossPlatform, // protocol.Platform
 		}
 		opts.Attestation = protocol.PreferNoAttestation
 	})
@@ -143,7 +144,7 @@ func (a *App) StartWebauthnRegistration(ctx context.Context, req *seba.StartWeba
 		return nil, fmt.Errorf("webauthn: %w", err)
 	}
 
-	err = a.Storage.CreateWebauthnRegistrationChallenge(ctx, userContext.RefreshToken.ID, sessionData.Challenge)
+	_, err = a.Storage.CreateWebauthnRegistrationChallenge(ctx, userContext.RefreshToken.ID, sessionData.Challenge)
 	if err != nil {
 		return nil, err
 	}
@@ -181,9 +182,6 @@ func (a *App) CompleteWebauthnRegistration(ctx context.Context, req *seba.Comple
 	if err != nil {
 		return nil, fmt.Errorf("webauthn: %w", err)
 	}
-	if cred.AttestationType != string(protocol.PreferNoAttestation) {
-		return nil, hand.New("attestation_type_mismatch")
-	}
 
 	storedCredential, err := a.Storage.GetWebauthnCredentialByCredentialID(ctx, string(cred.ID))
 	if err != nil {
@@ -200,8 +198,8 @@ func (a *App) CompleteWebauthnRegistration(ctx context.Context, req *seba.Comple
 		return nil, err
 	}
 
-	// TODO: generate new credentials in elevated state
-	tokens, err := a.CreateUserCredentials(ctx, userContext.User, *userContext.Client, userContext.RefreshToken.AuthenticationID)
+	isUserVerified := parsedResponse.Response.AttestationObject.AuthData.Flags.UserVerified()
+	tokens, err := a.CreateElevatedUserCredentials(ctx, userContext.User, *userContext.Client, userContext.RefreshToken.AuthenticationID, isUserVerified)
 	if err != nil {
 		return nil, err
 	}
@@ -230,7 +228,7 @@ func (a *App) StartWebauthnVerification(ctx context.Context, req *seba.StartWeba
 		return nil, fmt.Errorf("webauthn: %w", err)
 	}
 
-	err = a.Storage.CreateWebauthnVerificationChallenge(ctx, userContext.RefreshToken.ID, sessionData.Challenge, sessionData.AllowedCredentialIDs)
+	_, err = a.Storage.CreateWebauthnVerificationChallenge(ctx, userContext.RefreshToken.ID, sessionData.Challenge, sessionData.AllowedCredentialIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -278,13 +276,13 @@ func (a *App) CompleteWebauthnVerification(ctx context.Context, req *seba.Comple
 		return nil, hand.New("clone_warning")
 	}
 
-	err = a.Storage.UpdateWebauthnCredential(ctx, string(credential.ID), credential.Authenticator.SignCount)
+	err = a.Storage.UpdateWebauthnCredential(ctx, string(credential.ID), int(credential.Authenticator.SignCount))
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO: generate new credentials in elevated state
-	tokens, err := a.CreateUserCredentials(ctx, userContext.User, *userContext.Client, userContext.RefreshToken.AuthenticationID)
+	isUserVerified := parsedResponse.Response.AuthenticatorData.Flags.UserVerified()
+	tokens, err := a.CreateElevatedUserCredentials(ctx, userContext.User, *userContext.Client, userContext.RefreshToken.AuthenticationID, isUserVerified)
 	if err != nil {
 		return nil, err
 	}

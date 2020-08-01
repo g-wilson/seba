@@ -105,6 +105,6 @@ type Storage interface {
 
 	ListUserWebauthnCredentials(ctx context.Context, userID string) ([]*WebauthnCredential, error)
 	GetWebauthnCredentialByCredentialID(ctx context.Context, credentialID string) (*WebauthnCredential, error)
-	CreateWebAuthnCredential(ctx context.Context, userID, name, attestationType string, credentialID, publicKey, AAGUID []byte, signCount int) error
-	UpdateWebauthnCredential(ctx context.Context, credentialID string, signCount int) error
+	CreateWebAuthnCredential(ctx context.Context, userID, name, attestationType string, credentialID, publicKey, AAGUID []byte, signCount int) (*WebauthnCredential, error)
+	UpdateWebauthnCredential(ctx context.Context, userID, credentialID string, signCount int) error
 }
