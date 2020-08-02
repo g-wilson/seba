@@ -37,6 +37,24 @@ func (s *DynamoStorage) CreateRefreshToken(ctx context.Context, userID, clientID
 	return
 }
 
+func (s *DynamoStorage) GetRefreshTokenByID(ctx context.Context, reftokID string) (ent *RefreshToken, err error) {
+	ent = &RefreshToken{}
+
+	err = s.db.Table(s.table).
+		Get("id", reftokID).
+		Range("relation", dynamo.BeginsWith, TypePrefixUser).
+		OneWithContext(ctx, ent)
+	if err != nil {
+		if err == dynamo.ErrNotFound {
+			err = seba.ErrRefreshTokenNotFound
+		} else {
+			err = fmt.Errorf("dynamo: GetRefreshTokenByID: %w", err)
+		}
+	}
+
+	return
+}
+
 func (s *DynamoStorage) GetRefreshTokenByHashedToken(ctx context.Context, hashedToken string) (ent *RefreshToken, err error) {
 	ent = &RefreshToken{}
 

@@ -7,6 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/g-wilson/runtime/logger"
+	"github.com/sirupsen/logrus"
+
 	"github.com/g-wilson/seba"
 	"github.com/g-wilson/seba/internal/storage"
 
@@ -49,23 +52,45 @@ func (u *webauthnUserContext) WebAuthnCredentials() []webauthn.Credential {
 	return u.Creds
 }
 
-func convertFromStoredCredential(cred *storage.WebauthnCredential) webauthn.Credential {
+func convertFromStoredCredential(cred *storage.WebauthnCredential) (ret webauthn.Credential, err error) {
+	credIDBytes, err := base64.StdEncoding.DecodeString(cred.CredentialID)
+	pubKeyBytes, err := base64.StdEncoding.DecodeString(cred.PublicKey)
+	aaguidBytes, err := base64.StdEncoding.DecodeString(cred.AAGUID)
+	if err != nil {
+		return ret, fmt.Errorf("base64 decode failed for credential %s: %w", cred.ID, err)
+	}
+
 	return webauthn.Credential{
-		ID:              cred.CredentialID,
-		PublicKey:       cred.PublicKey,
+		ID:              credIDBytes,
+		PublicKey:       pubKeyBytes,
 		AttestationType: cred.AttestationType,
 		Authenticator: webauthn.Authenticator{
-			AAGUID:    cred.AAGUID,
+			AAGUID:    aaguidBytes,
 			SignCount: uint32(cred.SignCount),
 		},
-	}
+	}, nil
 }
 
-func (a *App) getWebauthnContext(ctx context.Context, refreshToken string) (*webauthnUserContext, *webauthn.WebAuthn, error) {
-	rt, err := a.Storage.GetRefreshTokenByHashedToken(ctx, sha256Hex(refreshToken))
-	if err != nil {
-		return nil, nil, err
+func convertFromStoredChallenge(chal *storage.WebauthnChallenge, userID string) (ret webauthn.SessionData, err error) {
+	var allowedCredsBytes = make([][]byte, len(chal.CredentialIDs))
+	for i, c := range chal.CredentialIDs {
+		cBytes, err := base64.StdEncoding.DecodeString(c)
+		if err != nil {
+			return ret, err
+		}
+
+		allowedCredsBytes[i] = cBytes
 	}
+
+	return webauthn.SessionData{
+		Challenge:            chal.Challenge,
+		UserID:               []byte(userID),
+		AllowedCredentialIDs: allowedCredsBytes,
+		UserVerification:     protocol.VerificationDiscouraged, // hard-coded for now
+	}, nil
+}
+
+func (a *App) getWebauthnContext(ctx context.Context, rt *storage.RefreshToken) (*webauthnUserContext, *webauthn.WebAuthn, error) {
 	if rt.UsedAt != nil {
 		return nil, nil, seba.ErrRefreshTokenUsed
 	}
@@ -108,9 +133,14 @@ func (a *App) getWebauthnContext(ctx context.Context, refreshToken string) (*web
 		return nil, nil, err
 	}
 
-	creds := make([]webauthn.Credential, len(storedCreds))
-	for _, c := range storedCreds {
-		creds = append(creds, convertFromStoredCredential(c))
+	var creds = make([]webauthn.Credential, len(storedCreds))
+	for i, c := range storedCreds {
+		parsedCred, err := convertFromStoredCredential(c)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		creds[i] = parsedCred
 	}
 
 	// TODO: parallelise a lot of the above
@@ -127,51 +157,63 @@ func (a *App) getWebauthnContext(ctx context.Context, refreshToken string) (*web
 }
 
 func (a *App) StartWebauthnRegistration(ctx context.Context, req *seba.StartWebauthnRegistrationRequest) (*seba.StartWebauthnRegistrationResponse, error) {
-	userContext, wanContext, err := a.getWebauthnContext(ctx, req.RefreshToken)
+	rt, err := a.Storage.GetRefreshTokenByHashedToken(ctx, sha256Hex(req.RefreshToken))
+	if err != nil {
+		return nil, err
+	}
+
+	userContext, wanContext, err := a.getWebauthnContext(ctx, rt)
 	if err != nil {
 		return nil, err
 	}
 
 	pubKeyOpts, sessionData, err := wanContext.BeginRegistration(userContext, func(opts *protocol.PublicKeyCredentialCreationOptions) {
 		opts.AuthenticatorSelection = protocol.AuthenticatorSelection{
-			RequireResidentKey:      ptrBool(false),
-			UserVerification:        protocol.VerificationDiscouraged,
-			AuthenticatorAttachment: protocol.CrossPlatform, // protocol.Platform
+			RequireResidentKey: ptrBool(false),
+			UserVerification:   protocol.VerificationDiscouraged,
+			// AuthenticatorAttachment: protocol.CrossPlatform, // protocol.Platform
 		}
+		// opts.Attestation = protocol.PreferDirectAttestation
 		opts.Attestation = protocol.PreferNoAttestation
 	})
 	if err != nil {
 		return nil, fmt.Errorf("webauthn: %w", err)
 	}
 
-	_, err = a.Storage.CreateWebauthnRegistrationChallenge(ctx, userContext.RefreshToken.ID, sessionData.Challenge)
+	chal, err := a.Storage.CreateWebauthnRegistrationChallenge(ctx, userContext.RefreshToken.ID, sessionData.Challenge)
 	if err != nil {
 		return nil, err
 	}
 
 	return &seba.StartWebauthnRegistrationResponse{
-		AssertionOptions: pubKeyOpts.Response,
+		ChallengeID:        chal.ID,
+		AttestationOptions: pubKeyOpts.Response,
 	}, nil
 }
 
 func (a *App) CompleteWebauthnRegistration(ctx context.Context, req *seba.CompleteWebauthnRegistrationRequest) (*seba.CompleteWebauthnRegistrationResponse, error) {
-	userContext, wanContext, err := a.getWebauthnContext(ctx, req.RefreshToken)
-	if err != nil {
-		return nil, err
-	}
-
-	assertionResponse := base64.NewDecoder(base64.StdEncoding, strings.NewReader(req.AssertionResponse))
-	parsedResponse, err := protocol.ParseCredentialCreationResponseBody(assertionResponse)
-	if err != nil {
-		return nil, err
-	}
-
-	storedSession, err := a.Storage.GetWebauthnChallenge(ctx, userContext.RefreshToken.ID)
+	storedSession, err := a.Storage.GetWebauthnChallenge(ctx, req.ChallengeID)
 	if err != nil {
 		return nil, err
 	}
 	if storedSession.CreatedAt.Add(1 * time.Minute).Before(time.Now()) {
 		return nil, hand.New("webauthn_session_expired")
+	}
+
+	rt, err := a.Storage.GetRefreshTokenByID(ctx, storedSession.SessionID)
+	if err != nil {
+		return nil, err
+	}
+
+	userContext, wanContext, err := a.getWebauthnContext(ctx, rt)
+	if err != nil {
+		return nil, err
+	}
+
+	attResponse := base64.NewDecoder(base64.StdEncoding, strings.NewReader(req.AttestationResponse))
+	parsedResponse, err := protocol.ParseCredentialCreationResponseBody(attResponse)
+	if err != nil {
+		return nil, err
 	}
 
 	sessionData := webauthn.SessionData{
@@ -183,17 +225,24 @@ func (a *App) CompleteWebauthnRegistration(ctx context.Context, req *seba.Comple
 		return nil, fmt.Errorf("webauthn: %w", err)
 	}
 
-	storedCredential, err := a.Storage.GetWebauthnCredentialByCredentialID(ctx, string(cred.ID))
-	if err != nil {
-		if !hand.Matches(err, seba.ErrWebauthnCredentialNotFound) {
-			return nil, err
-		}
-	}
-	if storedCredential != nil {
+	credIDString := base64.StdEncoding.EncodeToString(cred.ID)
+
+	logger.FromContext(ctx).Entry().WithFields(logrus.Fields{
+		"credential_id": credIDString,
+		"aaguid":        base64.StdEncoding.EncodeToString(cred.Authenticator.AAGUID),
+	}).Info("adding credential")
+
+	_, err = a.Storage.GetWebauthnCredentialByCredentialID(ctx, credIDString)
+	if err == nil {
 		return nil, hand.New("webauthn_credential_already_registered")
 	}
+	if !hand.Matches(err, seba.ErrWebauthnCredentialNotFound) {
+		return nil, err
+	}
 
-	err = a.Storage.CreateWebAuthnCredential(ctx, userContext.User.ID, "", cred.AttestationType, cred.ID, cred.PublicKey, cred.Authenticator.AAGUID, int(cred.Authenticator.SignCount))
+	pubKeyString := base64.StdEncoding.EncodeToString(cred.PublicKey)
+	aaguidString := base64.StdEncoding.EncodeToString(cred.Authenticator.AAGUID)
+	_, err = a.Storage.CreateWebAuthnCredential(ctx, userContext.User.ID, "", cred.AttestationType, credIDString, pubKeyString, aaguidString, int(cred.Authenticator.SignCount))
 	if err != nil {
 		return nil, err
 	}
@@ -216,7 +265,12 @@ func (a *App) CompleteWebauthnRegistration(ctx context.Context, req *seba.Comple
 }
 
 func (a *App) StartWebauthnVerification(ctx context.Context, req *seba.StartWebauthnVerificationRequest) (*seba.StartWebauthnVerificationResponse, error) {
-	userContext, wanContext, err := a.getWebauthnContext(ctx, req.RefreshToken)
+	rt, err := a.Storage.GetRefreshTokenByHashedToken(ctx, sha256Hex(req.RefreshToken))
+	if err != nil {
+		return nil, err
+	}
+
+	userContext, wanContext, err := a.getWebauthnContext(ctx, rt)
 	if err != nil {
 		return nil, err
 	}
@@ -228,23 +282,24 @@ func (a *App) StartWebauthnVerification(ctx context.Context, req *seba.StartWeba
 		return nil, fmt.Errorf("webauthn: %w", err)
 	}
 
-	_, err = a.Storage.CreateWebauthnVerificationChallenge(ctx, userContext.RefreshToken.ID, sessionData.Challenge, sessionData.AllowedCredentialIDs)
+	var stringCreds = make([]string, len(sessionData.AllowedCredentialIDs))
+	for i, c := range sessionData.AllowedCredentialIDs {
+		stringCreds[i] = base64.StdEncoding.EncodeToString(c)
+	}
+
+	chal, err := a.Storage.CreateWebauthnVerificationChallenge(ctx, userContext.RefreshToken.ID, sessionData.Challenge, stringCreds)
 	if err != nil {
 		return nil, err
 	}
 
 	return &seba.StartWebauthnVerificationResponse{
+		ChallengeID:      chal.ID,
 		AssertionOptions: assertionOpts.Response,
 	}, nil
 }
 
 func (a *App) CompleteWebauthnVerification(ctx context.Context, req *seba.CompleteWebauthnVerificationRequest) (*seba.CompleteWebauthnVerificationResponse, error) {
-	userContext, wanContext, err := a.getWebauthnContext(ctx, req.RefreshToken)
-	if err != nil {
-		return nil, err
-	}
-
-	storedSession, err := a.Storage.GetWebauthnChallenge(ctx, userContext.RefreshToken.ID)
+	storedSession, err := a.Storage.GetWebauthnChallenge(ctx, req.ChallengeID)
 	if err != nil {
 		return nil, err
 	}
@@ -252,11 +307,14 @@ func (a *App) CompleteWebauthnVerification(ctx context.Context, req *seba.Comple
 		return nil, hand.New("webauthn_session_expired")
 	}
 
-	sessionData := webauthn.SessionData{
-		Challenge:            storedSession.Challenge,
-		UserID:               []byte(userContext.User.ID),
-		AllowedCredentialIDs: storedSession.CredentialIDs,
-		UserVerification:     protocol.VerificationDiscouraged, // hard-coded for now
+	rt, err := a.Storage.GetRefreshTokenByID(ctx, storedSession.SessionID)
+	if err != nil {
+		return nil, err
+	}
+
+	userContext, wanContext, err := a.getWebauthnContext(ctx, rt)
+	if err != nil {
+		return nil, err
 	}
 
 	assertionResponse := base64.NewDecoder(base64.StdEncoding, strings.NewReader(req.AssertionResponse))
@@ -265,18 +323,21 @@ func (a *App) CompleteWebauthnVerification(ctx context.Context, req *seba.Comple
 		return nil, fmt.Errorf("webauthn: %w", err)
 	}
 
+	sessionData, err := convertFromStoredChallenge(storedSession, userContext.User.ID)
+	if err != nil {
+		return nil, err
+	}
+
 	credential, err := wanContext.ValidateLogin(userContext, sessionData, parsedResponse)
 	if err != nil {
 		return nil, fmt.Errorf("webauthn: %w", err)
-	}
-	if credential.AttestationType != string(protocol.PreferNoAttestation) {
-		return nil, hand.New("attestation_type_mismatch")
 	}
 	if credential.Authenticator.CloneWarning {
 		return nil, hand.New("clone_warning")
 	}
 
-	err = a.Storage.UpdateWebauthnCredential(ctx, string(credential.ID), int(credential.Authenticator.SignCount))
+	credIDString := base64.StdEncoding.EncodeToString(credential.ID)
+	err = a.Storage.UpdateWebauthnCredential(ctx, userContext.User.ID, credIDString, int(credential.Authenticator.SignCount))
 	if err != nil {
 		return nil, err
 	}

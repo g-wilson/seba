@@ -68,13 +68,13 @@ func (a *App) RPC() *rpcservice.Service {
 		AddMethod("complete_webauthn_registration", a.CompleteWebauthnRegistration, gojsonschema.NewStringLoader(`{
 			"type": "object",
 			"additionalProperties": false,
-			"required": [ "refresh_token", "assertion_response" ],
+			"required": [ "challenge_id", "attestation_response" ],
 			"properties": {
-				"refresh_token": {
+				"challenge_id": {
 					"type": "string",
 					"minLength": 1
 				},
-				"assertion_response": {
+				"attestation_response": {
 					"type": "string",
 					"minLength": 1
 				}
@@ -94,9 +94,9 @@ func (a *App) RPC() *rpcservice.Service {
 		AddMethod("complete_webauthn_verification", a.CompleteWebauthnVerification, gojsonschema.NewStringLoader(`{
 			"type": "object",
 			"additionalProperties": false,
-			"required": [ "refresh_token", "assertion_response" ],
+			"required": [ "challenge_id", "assertion_response" ],
 			"properties": {
-				"refresh_token": {
+				"challenge_id": {
 					"type": "string",
 					"minLength": 1
 				},

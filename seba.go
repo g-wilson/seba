@@ -152,12 +152,13 @@ type StartWebauthnRegistrationRequest struct {
 }
 
 type StartWebauthnRegistrationResponse struct {
-	AssertionOptions webauthnProtocol.PublicKeyCredentialCreationOptions `json:"assertion_options"`
+	ChallengeID        string                                              `json:"challenge_id"`
+	AttestationOptions webauthnProtocol.PublicKeyCredentialCreationOptions `json:"attestation_options"`
 }
 
 type CompleteWebauthnRegistrationRequest struct {
-	RefreshToken      string `json:"refresh_token"`
-	AssertionResponse string `json:"assertion_response"`
+	ChallengeID         string `json:"challenge_id"`
+	AttestationResponse string `json:"attestation_response"`
 }
 
 type CompleteWebauthnRegistrationResponse struct {
@@ -170,11 +171,12 @@ type StartWebauthnVerificationRequest struct {
 }
 
 type StartWebauthnVerificationResponse struct {
+	ChallengeID      string                                             `json:"challenge_id"`
 	AssertionOptions webauthnProtocol.PublicKeyCredentialRequestOptions `json:"assertion_options"`
 }
 
 type CompleteWebauthnVerificationRequest struct {
-	RefreshToken      string `json:"refresh_token"`
+	ChallengeID       string `json:"challenge_id"`
 	AssertionResponse string `json:"assertion_response"`
 }
 

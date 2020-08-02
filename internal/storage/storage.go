@@ -64,10 +64,10 @@ type WebauthnCredential struct {
 	CreatedAt       time.Time  `json:"created_at" dynamo:"created_at,unixtime"`
 	RemovedAt       *time.Time `json:"removed_at" dynamo:"removed_at,unixtime"`
 	Name            string     `json:"name" dynamo:"name"`
-	CredentialID    []byte     `json:"credential_id" dynamo:"lookup_value"`
-	PublicKey       []byte     `json:"public_key" dynamo:"public_key"`
+	CredentialID    string     `json:"credential_id" dynamo:"lookup_value"`
+	PublicKey       string     `json:"public_key" dynamo:"public_key"`
 	AttestationType string     `json:"attestation_type" dynamo:"attestation_type"`
-	AAGUID          []byte     `json:"aaguid" dynamo:"aaguid"`
+	AAGUID          string     `json:"aaguid" dynamo:"aaguid"`
 	SignCount       int        `json:"sign_count" dynamo:"sign_count"`
 }
 
@@ -77,7 +77,7 @@ type WebauthnChallenge struct {
 	CreatedAt     time.Time `json:"created_at" dynamo:"created_at,unixtime"`
 	ChallengeType string    `json:"challenge_type" dynamo:"challenge_type"`
 	Challenge     string    `json:"challenge" dynamo:"challenge"`
-	CredentialIDs [][]byte  `json:"credential_ids" dynamo:"credential_ids,set"`
+	CredentialIDs []string  `json:"credential_ids" dynamo:"credential_ids,set"`
 }
 
 type Storage interface {
@@ -91,6 +91,7 @@ type Storage interface {
 	ListPendingAuthentications(ctx context.Context, email string) ([]*Authentication, error)
 
 	CreateRefreshToken(ctx context.Context, userID, clientID, hashedToken string, authnID *string) (*RefreshToken, error)
+	GetRefreshTokenByID(ctx context.Context, reftokID string) (*RefreshToken, error)
 	GetRefreshTokenByHashedToken(ctx context.Context, hashedToken string) (*RefreshToken, error)
 	SetRefreshTokenUsed(ctx context.Context, reftokID, userID string) error
 
@@ -100,11 +101,11 @@ type Storage interface {
 	CreateUserWithEmail(ctx context.Context, emailAddress string) (*User, error)
 
 	CreateWebauthnRegistrationChallenge(ctx context.Context, sessionID, challenge string) (*WebauthnChallenge, error)
-	CreateWebauthnVerificationChallenge(ctx context.Context, sessionID, challenge string, credentialIDs [][]byte) (*WebauthnChallenge, error)
+	CreateWebauthnVerificationChallenge(ctx context.Context, sessionID, challenge string, credentialIDs []string) (*WebauthnChallenge, error)
 	GetWebauthnChallenge(ctx context.Context, sessionID string) (*WebauthnChallenge, error)
 
 	ListUserWebauthnCredentials(ctx context.Context, userID string) ([]*WebauthnCredential, error)
 	GetWebauthnCredentialByCredentialID(ctx context.Context, credentialID string) (*WebauthnCredential, error)
-	CreateWebAuthnCredential(ctx context.Context, userID, name, attestationType string, credentialID, publicKey, AAGUID []byte, signCount int) (*WebauthnCredential, error)
+	CreateWebAuthnCredential(ctx context.Context, userID, name, attestationType string, credentialID, publicKey, AAGUID string, signCount int) (*WebauthnCredential, error)
 	UpdateWebauthnCredential(ctx context.Context, userID, credentialID string, signCount int) error
 }

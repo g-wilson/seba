@@ -13,10 +13,11 @@ func (s *DynamoStorage) CreateWebauthnRegistrationChallenge(ctx context.Context,
 	timestamp := time.Now().UTC()
 
 	ent = &WebauthnChallenge{
-		ID:        generateID(TypePrefixWebauthnChallenge),
-		CreatedAt: timestamp,
-		SessionID: sessionID,
-		Challenge: challenge,
+		ID:            generateID(TypePrefixWebauthnChallenge),
+		CreatedAt:     timestamp,
+		SessionID:     sessionID,
+		Challenge:     challenge,
+		ChallengeType: "register",
 	}
 
 	err = s.db.Table(s.table).
@@ -29,7 +30,7 @@ func (s *DynamoStorage) CreateWebauthnRegistrationChallenge(ctx context.Context,
 	return
 }
 
-func (s *DynamoStorage) CreateWebauthnVerificationChallenge(ctx context.Context, sessionID, challenge string, credentialIDs [][]byte) (ent *WebauthnChallenge, err error) {
+func (s *DynamoStorage) CreateWebauthnVerificationChallenge(ctx context.Context, sessionID, challenge string, credentialIDs []string) (ent *WebauthnChallenge, err error) {
 	timestamp := time.Now().UTC()
 
 	ent = &WebauthnChallenge{
@@ -37,6 +38,7 @@ func (s *DynamoStorage) CreateWebauthnVerificationChallenge(ctx context.Context,
 		CreatedAt:     timestamp,
 		SessionID:     sessionID,
 		Challenge:     challenge,
+		ChallengeType: "verify",
 		CredentialIDs: credentialIDs,
 	}
 
@@ -50,13 +52,12 @@ func (s *DynamoStorage) CreateWebauthnVerificationChallenge(ctx context.Context,
 	return
 }
 
-func (s *DynamoStorage) GetWebauthnChallenge(ctx context.Context, sessionID string) (ent *WebauthnChallenge, err error) {
+func (s *DynamoStorage) GetWebauthnChallenge(ctx context.Context, challengeID string) (ent *WebauthnChallenge, err error) {
 	ent = &WebauthnChallenge{}
 
 	err = s.db.Table(s.table).
-		Get("relation", sessionID).
-		Index("relationLookup").
-		Range("id", dynamo.BeginsWith, TypePrefixWebauthnChallenge).
+		Get("id", challengeID).
+		Range("relation", dynamo.BeginsWith, TypePrefixRefreshToken).
 		OneWithContext(ctx, ent)
 	if err != nil {
 		if err == dynamo.ErrNotFound {
@@ -110,7 +111,7 @@ func (s *DynamoStorage) GetWebauthnCredentialByCredentialID(ctx context.Context,
 	return
 }
 
-func (s *DynamoStorage) CreateWebAuthnCredential(ctx context.Context, userID, name, attestationType string, credentialID, publicKey, AAGUID []byte, signCount int) (ent *WebauthnCredential, err error) {
+func (s *DynamoStorage) CreateWebAuthnCredential(ctx context.Context, userID, name, attestationType, credentialID, publicKey, AAGUID string, signCount int) (ent *WebauthnCredential, err error) {
 	timestamp := time.Now().UTC()
 
 	ent = &WebauthnCredential{
