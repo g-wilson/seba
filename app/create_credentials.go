@@ -25,18 +25,17 @@ var (
 
 // AccessTokenClaims type is used to marshal the access token JWT claims payload
 type AccessTokenClaims struct {
-	ClientID string `json:"cid"`
-	Scope    string `json:"scope"`
-
-	SecondFactor bool `json:"2fa"`
-	UserVerified bool `json:"2uv,omitempty"`
+	ClientID             string `json:"cid"`
+	Scope                string `json:"scope"`
+	SecondFactorVerified bool   `json:"sfv"`
 
 	jwt.Claims
 }
 
 // IDTokenClaims type is used to marshal the id token JWT claims payload
 type IDTokenClaims struct {
-	Emails []string `json:"emails"`
+	Emails               []string `json:"emails"`
+	SecondFactorEnrolled bool     `json:"sfe"`
 
 	jwt.Claims
 }
@@ -104,11 +103,11 @@ func (a *App) CreateElevatedUserCredentials(ctx context.Context, user *storage.U
 		NotBefore: jwt.NewNumericDate(time.Now().UTC()),
 	}
 	claims := &AccessTokenClaims{
-		ClientID:     client.ID,
-		Scope:        strings.Join(client.DefaultScopes, " "),
-		SecondFactor: true,
-		UserVerified: isUserVerified,
-		Claims:       basicClaims,
+		ClientID:             client.ID,
+		Scope:                strings.Join(client.DefaultScopes, " "),
+		SecondFactorVerified: true,
+		// UserVerified:         isUserVerified,
+		Claims: basicClaims,
 	}
 	accessToken, err := jwt.Signed(a.jwtConfig.Signer).
 		Claims(claims).
@@ -169,19 +168,29 @@ func (a *App) CreateBasicCredentials(subject string, scopes []string) (string, e
 }
 
 func (a *App) createIDToken(ctx context.Context, userID string, claims jwt.Claims) (string, error) {
+	idTokenClaims := &IDTokenClaims{
+		Emails: []string{},
+		Claims: claims,
+	}
+
 	emails, err := a.Storage.ListUserEmails(ctx, userID)
 	if err != nil {
 		return "", err
 	}
-	strEmails := []string{}
 	for _, em := range emails {
-		strEmails = append(strEmails, em.Email)
+		idTokenClaims.Emails = append(idTokenClaims.Emails, em.Email)
 	}
 
+	storedCreds, err := a.Storage.ListUserWebauthnCredentials(ctx, userID)
+	if err != nil {
+		return "", err
+	}
+
+	idTokenClaims.SecondFactorEnrolled = len(storedCreds) > 0
+
+	// TODO: parallelise the above
+
 	return jwt.Signed(a.jwtConfig.Signer).
-		Claims(&IDTokenClaims{
-			Emails: strEmails,
-			Claims: claims,
-		}).
+		Claims(idTokenClaims).
 		CompactSerialize()
 }

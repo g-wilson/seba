@@ -11,16 +11,10 @@ var ctxkey = identityContextKey("sebaidentity")
 
 // Identity holds attributes of the bearer who is currently authenticated with an access token
 type Identity struct {
-	UserID       string
-	ClientID     string
-	Scopes       []string
-	SecondFactor *SecondFactorParams
-}
-
-// SecondFactorParams holds attributes of any second factor authentication that took place
-type SecondFactorParams struct {
-	UserVerified         bool
-	RoamingAuthenticator bool
+	UserID               string
+	ClientID             string
+	Scopes               []string
+	SecondFactorVerified bool
 }
 
 // HasScope returns true if the bearer does possess a given scope
@@ -59,15 +53,8 @@ func SetIdentity(ctx context.Context, claims map[string]interface{}) context.Con
 		b.Scopes = strings.Split(sc, " ")
 	}
 
-	if sc, ok := claims["2fa"].(bool); ok && sc {
-		secondFactor := SecondFactorParams{}
-
-		if uv, ok := claims["2uv"].(bool); ok {
-			secondFactor.UserVerified = uv
-		}
-		if ra, ok := claims["2ra"].(bool); ok {
-			secondFactor.RoamingAuthenticator = ra
-		}
+	if sfv, ok := claims["sfv"].(bool); ok {
+		b.SecondFactorVerified = sfv
 	}
 
 	ctx = context.WithValue(ctx, ctxkey, b)
