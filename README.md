@@ -6,11 +6,11 @@ Add secure passwordless authentication to your application with a serverless phi
 
 -------
 
-This is primarily an exercise for me to build something real with an entirely serverless philosophy, expand my working knowledge of DynamoDB, and be used as a starter for any side projects.
+This is primarily an exercise for me to build something real with an entirely serverless philosophy, expand my working knowledge of DynamoDB, Webauthn, and maybe a starter for any side projects.
 
 -------
 
-SEBA is an opinionated service designed specifically for common mobile or JS web applications. The goal of SEBA is to provide a simple, sensible way to authenticate a user by using an email account as an identity. It is not concerned with granting scoped permissions to a variety of clients.
+SEBA is an opinionated service designed specifically for common mobile or JS web applications. The goal of SEBA is to provide a simple, sensible way to authenticate a user by using an email account as an identity. It is not concerned with granting scoped permissions to a variety of clients. It provides  hardware 2FA on top using Webauthn.
 
 Email identity can be verified in 3 ways:
 
@@ -74,6 +74,30 @@ func main() {
 		return nil, fmt.Errorf("error compiling template: %w", err)
 	}
 
+	clientConfig := seba.Client{
+		// Set a unique ID for your client. This will be the audience parameter in the access token JWT.
+		ID:                     "your-client-id",
+
+		// DefaultScopes is the list of scope strings to be issued in the access token JWT.
+		DefaultScopes:          []string{"api"},
+
+		// RefreshTokenTTL is a duration during which a refresh_token grant will be valid. Set to zero to disable refresh_token grant type.
+		RefreshTokenTTL:        90 * 24 * time.Hour,
+
+		// EmailAuthenticationURL is the callback URL for magic link style authentication emails. Leave empty to disable email_token grant type.
+		EmailAuthenticationURL: "https://localhost:8080/auth/email-callback",
+
+		// GoogleConfig is used to create the google API client to exchange the authorization code
+		GoogleConfig: &oauth2.Config{
+			ClientID:     os.Getenv("GOOGLE_OAUTH_CLIENT_ID"),
+			ClientSecret: os.Getenv("GOOGLE_OAUTH_SECRET"),
+			RedirectURL:  "https://localhost:8080/auth/google-callback",
+		},
+
+		// optional field required for hardware 2FA
+		WebauthnOrigin: "https://localhost:8080",
+	}
+
 	sebaInstance, err := sebaApp.New(seba.Config{
 		LogLevel:  os.Getenv("LOG_LEVEL"),
 		LogFormat: os.Getenv("LOG_FORMAT"),
@@ -93,24 +117,11 @@ func main() {
 		JWTPrivateKey: os.Getenv("AUTH_PRIVATE_KEY"),
 		JWTIssuer:     os.Getenv("AUTH_ISSUER"),
 
-		Clients: []seba.Client{
-			seba.Client{
-				// Set a unique ID for your client. This will be the audience parameter in the access token JWT.
-				ID:                     "your-client-id",
-				// DefaultScopes is the list of scope strings to be issued in the access token JWT.
-				DefaultScopes:          []string{"api"},
-				// RefreshTokenTTL is a duration during which a refresh_token grant will be valid. Set to zero to disable refresh_token grant type.
-				RefreshTokenTTL:        90 * 24 * time.Hour,
-				// EmailAuthenticationURL is the callback URL for magic link style authentication emails. Leave empty to disable email_token grant type.
-				EmailAuthenticationURL: "https://localhost:8080/auth/email-callback",
-				// GoogleConfig is used to create the google API client to exchange the authorization code
-				GoogleConfig: &oauth2.Config{
-					ClientID:     os.Getenv("GOOGLE_OAUTH_CLIENT_ID"),
-					ClientSecret: os.Getenv("GOOGLE_OAUTH_SECRET"),
-					RedirectURL:  "https://localhost:8080/auth/google-callback",
-				},
-			},
-		},
+		Clients: []seba.Client{clientConfig},
+
+		// optional fields required for hardware 2FA
+		WebauthnDisplayName: "0xf09f8dba",
+		WebauthnID:          "localhost",
 	})
 	if err != nil {
 		panic(err)
@@ -224,7 +235,8 @@ If you use Go, you can use the included `idcontext` package which provides two u
   "iss": "https://example.com",
   "nbf": 1588954267,
   "scope": "api admin",
-  "sub": "user_a71ce329-e1d9-4993-8525-f26bbecc448c"
+  "sub": "user_a71ce329-e1d9-4993-8525-f26bbecc448c",
+  "sfv": false
 }
 ```
 
@@ -233,6 +245,8 @@ The access token provides a user ID as the subject, which you can use in your ap
 It is assumed you will use your own separate for storing account data related to your application. SEBA is not designed to provide full-featured user profile or team management system, you can build that on top of the basic authenticated identity flows.
 
 The scope claim can be used for basic permissions checks. At the moment scopes are always determined by the client configuration, they are not part of the oAuth grant. The value is a space-delimited list of strings.
+
+When `sfv` is `true` this means the session can be considered elevated after a hardware-2FA assertion was performed.
 
 **ID Token claims**
 
@@ -248,8 +262,98 @@ The scope claim can be used for basic permissions checks. At the moment scopes a
   "iat": 1588954267,
   "iss": "https://example.com",
   "nbf": 1588954267,
-  "sub": "user_a71ce329-e1d9-4993-8525-f26bbecc448c"
+  "sub": "user_a71ce329-e1d9-4993-8525-f26bbecc448c",
+  "sfe": false
 }
 ```
 
 The identity token provides the `user_id` as the subject in the same way as the access token, but it additionally provides the email addresses verified by the user.
+
+`sfe`: "Second Factor Enrolled" is `true` if the user has registered at least one hardware 2FA key credential.
+
+### /start_webauthn_registration
+
+Begins the hardware 2FA registration flow. See [here](https://webauthn.io/) for more info.
+
+Request:
+
+```json
+{
+	"refresh_token": "aaaxx"
+}
+```
+
+Response:
+
+```json
+{
+	"challenge_id": "wanchal_1efxx",
+	"attestation_options": {...}
+}
+```
+
+### /complete_webauthn_registration
+
+Registers a hardware 2FA token against a user using the challenge from `/start_webauthn_registration`.
+
+Request:
+
+```json
+{
+	"challenge_id": "wanchal_1efxx",
+	"attestation_response": {...}
+}
+```
+
+Response:
+
+```json
+{
+  "access_token": "eyJ...",
+  "refresh_token": "0fce8Tl4vkZ8IO5qNhwQwmTbCQMDgnY1",
+  "id_token": "eyJ..."
+}
+```
+
+### /start_webauthn_verification
+
+Starts the hardware 2FA verification flow. See [here](https://webauthn.io/) for more info.
+
+Request:
+
+```json
+{
+	"refresh_token": "aaaxx"
+}
+```
+
+Response:
+
+```json
+{
+	"challenge_id": "wanchal_1efxx",
+	"assertion_options": {...}
+}
+```
+
+### /complete_webauthn_verification
+
+Elevates an existing session by asserting the hardware 2FA response using the challenge from `/start_webauthn_verification`.
+
+Request:
+
+```json
+{
+	"challenge_id": "wanchal_1efxx",
+	"assertion_response": {...}
+}
+```
+
+Response:
+
+```json
+{
+  "access_token": "eyJ...",
+  "refresh_token": "0fce8Tl4vkZ8IO5qNhwQwmTbCQMDgnY1",
+  "id_token": "eyJ..."
+}
