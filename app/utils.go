@@ -11,6 +11,10 @@ func sha256Hex(inputStr string) string {
 	return hex.EncodeToString(hash.Sum(nil))
 }
 
-func strPointer(str string) *string {
+func ptrStr(str string) *string {
 	return &str
+}
+
+func ptrBool(b bool) *bool {
+	return &b
 }

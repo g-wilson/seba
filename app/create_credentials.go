@@ -14,7 +14,10 @@ import (
 
 var (
 	// UserCredentialsTTL is the duration of validity for a user access token
-	UserCredentialsTTL = 60 * time.Minute
+	UserCredentialsTTL = 180 * time.Minute
+
+	// ElevatedUserCredentialsTTL is the duration of validity for an elevated user access token
+	ElevatedUserCredentialsTTL = 60 * time.Minute
 
 	// BasicCredentialsTTL is the duration of validity for a basic access token
 	BasicCredentialsTTL = 86400 * 365 * time.Second
@@ -22,15 +25,17 @@ var (
 
 // AccessTokenClaims type is used to marshal the access token JWT claims payload
 type AccessTokenClaims struct {
-	ClientID string `json:"cid"`
-	Scope    string `json:"scope"`
+	ClientID             string `json:"cid"`
+	Scope                string `json:"scope"`
+	SecondFactorVerified bool   `json:"sfv"`
 
 	jwt.Claims
 }
 
 // IDTokenClaims type is used to marshal the id token JWT claims payload
 type IDTokenClaims struct {
-	Emails []string `json:"emails"`
+	Emails               []string `json:"emails"`
+	SecondFactorEnrolled bool     `json:"sfe"`
 
 	jwt.Claims
 }
@@ -58,23 +63,62 @@ func (a *App) CreateUserCredentials(ctx context.Context, user *storage.User, cli
 		return
 	}
 
-	emails, err := a.Storage.ListUserEmails(ctx, user.ID)
+	idToken, err := a.createIDToken(ctx, user.ID, basicClaims)
 	if err != nil {
 		return nil, err
 	}
-	strEmails := []string{}
-	for _, em := range emails {
-		strEmails = append(strEmails, em.Email)
+
+	creds = &seba.Credentials{
+		AccessToken: accessToken,
+		IDToken:     idToken,
 	}
 
-	idToken, err := jwt.Signed(a.jwtConfig.Signer).
-		Claims(&IDTokenClaims{
-			Emails: strEmails,
-			Claims: basicClaims,
-		}).
+	if client.RefreshGrantEnabed() {
+		refreshToken, err := token.GenerateToken(32)
+		if err != nil {
+			return nil, err
+		}
+
+		a.Logger.Debugf("refresh_token: %s", refreshToken)
+
+		_, err = a.Storage.CreateRefreshToken(ctx, user.ID, client.ID, sha256Hex(refreshToken), authnID)
+		if err != nil {
+			return nil, err
+		}
+
+		creds.RefreshToken = refreshToken
+	}
+
+	return creds, nil
+}
+
+// CreateElevatedUserCredentials is the same as CreateUserCredentials but adds claims from a webauthn
+func (a *App) CreateElevatedUserCredentials(ctx context.Context, user *storage.User, client seba.Client, authnID *string, isUserVerified bool) (creds *seba.Credentials, err error) {
+	basicClaims := jwt.Claims{
+		Subject:   user.ID,
+		Issuer:    a.jwtConfig.Issuer,
+		Audience:  jwt.Audience{seba.APIGatewayClient},
+		Expiry:    jwt.NewNumericDate(time.Now().UTC().Add(ElevatedUserCredentialsTTL)),
+		IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
+		NotBefore: jwt.NewNumericDate(time.Now().UTC()),
+	}
+	claims := &AccessTokenClaims{
+		ClientID:             client.ID,
+		Scope:                strings.Join(client.DefaultScopes, " "),
+		SecondFactorVerified: true,
+		// UserVerified:         isUserVerified,
+		Claims: basicClaims,
+	}
+	accessToken, err := jwt.Signed(a.jwtConfig.Signer).
+		Claims(claims).
 		CompactSerialize()
 	if err != nil {
 		return
+	}
+
+	idToken, err := a.createIDToken(ctx, user.ID, basicClaims)
+	if err != nil {
+		return nil, err
 	}
 
 	creds = &seba.Credentials{
@@ -121,4 +165,32 @@ func (a *App) CreateBasicCredentials(subject string, scopes []string) (string, e
 		CompactSerialize()
 
 	return accessToken, err
+}
+
+func (a *App) createIDToken(ctx context.Context, userID string, claims jwt.Claims) (string, error) {
+	idTokenClaims := &IDTokenClaims{
+		Emails: []string{},
+		Claims: claims,
+	}
+
+	emails, err := a.Storage.ListUserEmails(ctx, userID)
+	if err != nil {
+		return "", err
+	}
+	for _, em := range emails {
+		idTokenClaims.Emails = append(idTokenClaims.Emails, em.Email)
+	}
+
+	storedCreds, err := a.Storage.ListUserWebauthnCredentials(ctx, userID)
+	if err != nil {
+		return "", err
+	}
+
+	idTokenClaims.SecondFactorEnrolled = len(storedCreds) > 0
+
+	// TODO: parallelise the above
+
+	return jwt.Signed(a.jwtConfig.Signer).
+		Claims(idTokenClaims).
+		CompactSerialize()
 }

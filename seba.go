@@ -6,6 +6,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
+	webauthnProtocol "github.com/duo-labs/webauthn/protocol"
 	"github.com/g-wilson/runtime"
 	"github.com/g-wilson/runtime/hand"
 	"golang.org/x/oauth2"
@@ -50,6 +51,9 @@ var (
 
 	ErrUserNotFound      = hand.New("user_not_found")
 	ErrUserAlreadyExists = hand.New("user_already_exists")
+
+	ErrWebauthnChallengeNotFound  = hand.New("webauthn_challenge_not_found")
+	ErrWebauthnCredentialNotFound = hand.New("webauthn_credential_not_found")
 )
 
 // Config type is used as the argument to the app constructor
@@ -66,6 +70,9 @@ type Config struct {
 
 	JWTPrivateKey string
 	JWTIssuer     string
+
+	WebauthnDisplayName string
+	WebauthnID          string
 
 	Clients []Client
 }
@@ -93,8 +100,11 @@ type Client struct {
 	// RefreshTokenTTL is a duration during which a refresh_token grant will be valid. Set to zero to disable refresh_token grant type.
 	RefreshTokenTTL time.Duration
 
-	// GoogleConfig is used to create the google API client to exchange the authorization code
+	// GoogleConfig is used to create the google API client to exchange the authorization code. Leave empty to disable google_authz_code grant type.
 	GoogleConfig *oauth2.Config
+
+	// WebauthnOrigin is used to validate webauthn requests against a web page. Leave empty to disable webauthn functionality.
+	WebauthnOrigin string
 }
 
 func (c *Client) GoogleGrantEnabled() bool {
@@ -107,6 +117,10 @@ func (c *Client) RefreshGrantEnabed() bool {
 
 func (c *Client) EmailGrantEnabled() bool {
 	return c.EmailAuthenticationURL != ""
+}
+
+func (c *Client) WebauthnEnabled() bool {
+	return c.WebauthnOrigin != ""
 }
 
 type Credentials struct {
@@ -131,4 +145,40 @@ type SendAuthenticationEmailRequest struct {
 	State         string `json:"state"`
 	ClientID      string `json:"client_id"`
 	PKCEChallenge string `json:"pkce_challenge"`
+}
+
+type StartWebauthnRegistrationRequest struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
+type StartWebauthnRegistrationResponse struct {
+	ChallengeID        string                                              `json:"challenge_id"`
+	AttestationOptions webauthnProtocol.PublicKeyCredentialCreationOptions `json:"attestation_options"`
+}
+
+type CompleteWebauthnRegistrationRequest struct {
+	ChallengeID         string `json:"challenge_id"`
+	AttestationResponse string `json:"attestation_response"`
+}
+
+type CompleteWebauthnRegistrationResponse struct {
+	*Credentials
+}
+
+type StartWebauthnVerificationRequest struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
+type StartWebauthnVerificationResponse struct {
+	ChallengeID      string                                             `json:"challenge_id"`
+	AssertionOptions webauthnProtocol.PublicKeyCredentialRequestOptions `json:"assertion_options"`
+}
+
+type CompleteWebauthnVerificationRequest struct {
+	ChallengeID       string `json:"challenge_id"`
+	AssertionResponse string `json:"assertion_response"`
+}
+
+type CompleteWebauthnVerificationResponse struct {
+	*Credentials
 }

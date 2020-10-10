@@ -94,16 +94,16 @@ func (a *App) createAuthenticationEmail(toAddress, linkURL string) (*ses.SendEma
 		Source:           &a.emailConfig.DefaultFromAddress,
 		Message: &ses.Message{
 			Subject: &ses.Content{
-				Charset: strPointer("UTF-8"),
+				Charset: ptrStr("UTF-8"),
 				Data:    &a.emailConfig.AuthnEmailSubject,
 			},
 			Body: &ses.Body{
 				Html: &ses.Content{
-					Charset: strPointer("UTF-8"),
+					Charset: ptrStr("UTF-8"),
 					Data:    &outputStr,
 				},
 				Text: &ses.Content{
-					Charset: strPointer("UTF-8"),
+					Charset: ptrStr("UTF-8"),
 					Data:    &outputStr,
 				},
 			},

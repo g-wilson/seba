@@ -70,6 +70,9 @@ func main() {
 		JWTPrivateKey: os.Getenv("SEBA_PRIVATE_KEY"),
 		JWTIssuer:     os.Getenv("SEBA_ISSUER"),
 
+		WebauthnDisplayName: "Example",
+		WebauthnID:          "example.com",
+
 		Clients: []seba.Client{
 			seba.Client{
 				ID:                     "example_client1",
@@ -81,6 +84,7 @@ func main() {
 					ClientSecret: os.Getenv("GOOGLE_OAUTH_SECRET"),
 					RedirectURL:  "https://localhost:8080",
 				},
+				WebauthnOrigin: "https://localhost:8080",
 			},
 		},
 	})

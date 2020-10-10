@@ -53,5 +53,57 @@ func (a *App) RPC() *rpcservice.Service {
 					"minLength": 1
 				}
 			}
+		}`)).
+		AddMethod("start_webauthn_registration", a.StartWebauthnRegistration, gojsonschema.NewStringLoader(`{
+			"type": "object",
+			"additionalProperties": false,
+			"required": [ "refresh_token" ],
+			"properties": {
+				"refresh_token": {
+					"type": "string",
+					"minLength": 1
+				}
+			}
+		}`)).
+		AddMethod("complete_webauthn_registration", a.CompleteWebauthnRegistration, gojsonschema.NewStringLoader(`{
+			"type": "object",
+			"additionalProperties": false,
+			"required": [ "challenge_id", "attestation_response" ],
+			"properties": {
+				"challenge_id": {
+					"type": "string",
+					"minLength": 1
+				},
+				"attestation_response": {
+					"type": "string",
+					"minLength": 1
+				}
+			}
+		}`)).
+		AddMethod("start_webauthn_verification", a.StartWebauthnVerification, gojsonschema.NewStringLoader(`{
+			"type": "object",
+			"additionalProperties": false,
+			"required": [ "refresh_token" ],
+			"properties": {
+				"refresh_token": {
+					"type": "string",
+					"minLength": 1
+				}
+			}
+		}`)).
+		AddMethod("complete_webauthn_verification", a.CompleteWebauthnVerification, gojsonschema.NewStringLoader(`{
+			"type": "object",
+			"additionalProperties": false,
+			"required": [ "challenge_id", "assertion_response" ],
+			"properties": {
+				"challenge_id": {
+					"type": "string",
+					"minLength": 1
+				},
+				"assertion_response": {
+					"type": "string",
+					"minLength": 1
+				}
+			}
 		}`))
 }
