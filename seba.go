@@ -162,8 +162,7 @@ type CompleteWebauthnRegistrationRequest struct {
 }
 
 type CompleteWebauthnRegistrationResponse struct {
-	RefreshToken string `json:"refresh_token"`
-	AccessToken  string `json:"access_token"`
+	*Credentials
 }
 
 type StartWebauthnVerificationRequest struct {
@@ -181,6 +180,5 @@ type CompleteWebauthnVerificationRequest struct {
 }
 
 type CompleteWebauthnVerificationResponse struct {
-	RefreshToken string `json:"refresh_token"`
-	AccessToken  string `json:"access_token"`
+	*Credentials
 }

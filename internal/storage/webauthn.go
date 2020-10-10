@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/g-wilson/seba"
+
 	"github.com/guregu/dynamo"
 )
 

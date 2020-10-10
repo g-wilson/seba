@@ -18,11 +18,6 @@ import (
 	"github.com/g-wilson/runtime/hand"
 )
 
-// TODO: remove this
-var tmpRegisterSessionData webauthn.SessionData
-var tmpVerifySessionData webauthn.SessionData
-var tmpCredentials = []webauthn.Credential{}
-
 // webauthnUserContext provides user data for the webauthn handlers and meets the webauthn library interface
 type webauthnUserContext struct {
 	Client       *seba.Client
@@ -258,10 +253,7 @@ func (a *App) CompleteWebauthnRegistration(ctx context.Context, req *seba.Comple
 		return nil, err
 	}
 
-	return &seba.CompleteWebauthnRegistrationResponse{
-		RefreshToken: tokens.RefreshToken,
-		AccessToken:  tokens.AccessToken,
-	}, nil
+	return &seba.CompleteWebauthnRegistrationResponse{tokens}, nil
 }
 
 func (a *App) StartWebauthnVerification(ctx context.Context, req *seba.StartWebauthnVerificationRequest) (*seba.StartWebauthnVerificationResponse, error) {
@@ -353,8 +345,5 @@ func (a *App) CompleteWebauthnVerification(ctx context.Context, req *seba.Comple
 		return nil, err
 	}
 
-	return &seba.CompleteWebauthnVerificationResponse{
-		RefreshToken: tokens.RefreshToken,
-		AccessToken:  tokens.AccessToken,
-	}, nil
+	return &seba.CompleteWebauthnVerificationResponse{tokens}, nil
 }
