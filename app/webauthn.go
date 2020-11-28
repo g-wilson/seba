@@ -9,6 +9,7 @@ import (
 
 	"github.com/g-wilson/runtime/logger"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/g-wilson/seba"
 	"github.com/g-wilson/seba/internal/storage"
@@ -108,37 +109,55 @@ func (a *App) getWebauthnContext(ctx context.Context, rt *storage.RefreshToken) 
 		return nil, nil, err
 	}
 
-	user, err := a.Storage.GetUserByID(ctx, rt.UserID)
-	if err != nil {
-		return nil, nil, err
-	}
+	var user *storage.User
+	var emails []*storage.Email
+	creds := []webauthn.Credential{}
 
-	emails, err := a.Storage.ListUserEmails(ctx, user.ID)
-	if err != nil {
-		return nil, nil, err
-	}
-	if len(emails) < 1 {
-		return nil, nil, hand.
-			New("email_registration_required").
-			WithMessage("You must have a registered email address before using webauthn")
-	}
+	g, gctx := errgroup.WithContext(ctx)
 
-	storedCreds, err := a.Storage.ListUserWebauthnCredentials(ctx, user.ID)
-	if err != nil {
-		return nil, nil, err
-	}
+	g.Go(func() (err error) {
+		user, err = a.Storage.GetUserByID(gctx, rt.UserID)
 
-	var creds = make([]webauthn.Credential, len(storedCreds))
-	for i, c := range storedCreds {
-		parsedCred, err := convertFromStoredCredential(c)
+		return
+	})
+
+	g.Go(func() (err error) {
+		emails, err = a.Storage.ListUserEmails(gctx, rt.UserID)
 		if err != nil {
-			return nil, nil, err
+			return
 		}
 
-		creds[i] = parsedCred
-	}
+		if len(emails) < 1 {
+			err = hand.
+				New("email_registration_required").
+				WithMessage("You must have a registered email address before using webauthn")
+		}
 
-	// TODO: parallelise a lot of the above
+		return
+	})
+
+	g.Go(func() (err error) {
+		storedCreds, err := a.Storage.ListUserWebauthnCredentials(gctx, rt.UserID)
+		if err != nil {
+			return err
+		}
+
+		for _, c := range storedCreds {
+			parsedCred, err := convertFromStoredCredential(c)
+			if err != nil {
+				return err
+			}
+
+			creds = append(creds, parsedCred)
+		}
+
+		return
+	})
+
+	err = g.Wait()
+	if err != nil {
+		return nil, nil, err
+	}
 
 	wanUser := &webauthnUserContext{
 		Client:       &client,

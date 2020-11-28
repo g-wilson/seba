@@ -9,7 +9,7 @@ type identityContextKey string
 
 var ctxkey = identityContextKey("sebaidentity")
 
-// Identity holds attributes of the bearer who is currently authenticated with an access token
+// Identity holds attributes of the bearer of an access token
 type Identity struct {
 	UserID               string
 	ClientID             string
@@ -17,31 +17,9 @@ type Identity struct {
 	SecondFactorVerified bool
 }
 
-// HasScope returns true if the bearer does possess a given scope
-func (uc Identity) HasScope(scope string) bool {
-	for _, sc := range uc.Scopes {
-		if sc == scope {
-			return true
-		}
-	}
-
-	return false
-}
-
-// GetIdentity returns the identity of the requester from the request context
-func GetIdentity(ctx context.Context) *Identity {
-	val := ctx.Value(ctxkey)
-
-	if claims, ok := val.(*Identity); ok {
-		return claims
-	}
-
-	return &Identity{}
-}
-
-// SetIdentity adds the identity of the requester to the request context
-func SetIdentity(ctx context.Context, claims map[string]interface{}) context.Context {
-	b := &Identity{}
+// NewFromClaims attempts to create an Identity from a map of access token claims
+func NewFromClaims(claims map[string]interface{}) Identity {
+	b := Identity{}
 
 	if sub, ok := claims["sub"].(string); ok {
 		b.UserID = sub
@@ -57,7 +35,39 @@ func SetIdentity(ctx context.Context, claims map[string]interface{}) context.Con
 		b.SecondFactorVerified = sfv
 	}
 
+	return b
+}
+
+// HasScope returns true if the bearer does possess a given scope
+func (uc Identity) HasScope(scope string) bool {
+	for _, sc := range uc.Scopes {
+		if sc == scope {
+			return true
+		}
+	}
+
+	return false
+}
+
+// GetIdentityContext returns an identity from the request context
+func GetIdentityContext(ctx context.Context) *Identity {
+	val := ctx.Value(ctxkey)
+
+	if claims, ok := val.(*Identity); ok {
+		return claims
+	}
+
+	return &Identity{}
+}
+
+// SetIdentityContext adds an Identity to a Go context, typically the request
+func SetIdentityContext(ctx context.Context, b Identity) context.Context {
 	ctx = context.WithValue(ctx, ctxkey, b)
 
 	return ctx
+}
+
+// IdentityProvider matches the runtime library IdentityProvider type
+func IdentityProvider(ctx context.Context, claims map[string]interface{}) context.Context {
+	return SetIdentityContext(ctx, NewFromClaims(claims))
 }

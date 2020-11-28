@@ -9,6 +9,7 @@ import (
 	"github.com/g-wilson/seba/internal/storage"
 	"github.com/g-wilson/seba/internal/token"
 
+	"golang.org/x/sync/errgroup"
 	"gopkg.in/square/go-jose.v2/jwt"
 )
 
@@ -106,8 +107,7 @@ func (a *App) CreateElevatedUserCredentials(ctx context.Context, user *storage.U
 		ClientID:             client.ID,
 		Scope:                strings.Join(client.DefaultScopes, " "),
 		SecondFactorVerified: true,
-		// UserVerified:         isUserVerified,
-		Claims: basicClaims,
+		Claims:               basicClaims,
 	}
 	accessToken, err := jwt.Signed(a.jwtConfig.Signer).
 		Claims(claims).
@@ -173,22 +173,35 @@ func (a *App) createIDToken(ctx context.Context, userID string, claims jwt.Claim
 		Claims: claims,
 	}
 
-	emails, err := a.Storage.ListUserEmails(ctx, userID)
+	g, gctx := errgroup.WithContext(ctx)
+
+	g.Go(func() error {
+		emails, err := a.Storage.ListUserEmails(gctx, userID)
+		if err != nil {
+			return err
+		}
+		for _, em := range emails {
+			idTokenClaims.Emails = append(idTokenClaims.Emails, em.Email)
+		}
+
+		return nil
+	})
+
+	g.Go(func() error {
+		storedCreds, err := a.Storage.ListUserWebauthnCredentials(gctx, userID)
+		if err != nil {
+			return err
+		}
+
+		idTokenClaims.SecondFactorEnrolled = len(storedCreds) > 0
+
+		return nil
+	})
+
+	err := g.Wait()
 	if err != nil {
 		return "", err
 	}
-	for _, em := range emails {
-		idTokenClaims.Emails = append(idTokenClaims.Emails, em.Email)
-	}
-
-	storedCreds, err := a.Storage.ListUserWebauthnCredentials(ctx, userID)
-	if err != nil {
-		return "", err
-	}
-
-	idTokenClaims.SecondFactorEnrolled = len(storedCreds) > 0
-
-	// TODO: parallelise the above
 
 	return jwt.Signed(a.jwtConfig.Signer).
 		Claims(idTokenClaims).

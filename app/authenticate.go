@@ -12,6 +12,7 @@ import (
 	"github.com/g-wilson/seba/internal/storage"
 
 	"github.com/g-wilson/runtime/hand"
+	"github.com/g-wilson/runtime/logger"
 	"golang.org/x/oauth2"
 	"gopkg.in/square/go-jose.v2/jwt"
 )
@@ -90,6 +91,19 @@ func (a *App) useEmailToken(ctx context.Context, token string, client seba.Clien
 	}
 
 	err = a.Storage.SetAuthenticationVerified(ctx, authn.ID, authn.Email)
+
+	// revoke any authentications which have not been used or have not already been revoked
+	authns, err := a.Storage.ListPendingAuthentications(ctx, authn.Email)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, an := range authns {
+		err = a.Storage.SetAuthenticationRevoked(ctx, an.ID, authn.Email)
+		if err != nil {
+			logger.FromContext(ctx).Entry().WithError(err).Error("revoke authn failed")
+		}
+	}
 
 	return
 }
