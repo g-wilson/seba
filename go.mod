@@ -9,7 +9,6 @@ require (
 	github.com/guregu/dynamo v1.7.0
 	github.com/segmentio/ksuid v1.0.4
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
-	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
 	gopkg.in/square/go-jose.v2 v2.4.1
 )
 
