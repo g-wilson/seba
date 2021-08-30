@@ -6,25 +6,24 @@ A Serverless framework application providing secure passwordless authentication.
 
 ## TODO
 
-- [ ] webauthn
 - [ ] revocation endpoint
 - [ ] introspection endpoint
 - [ ] grant type: client credentials
 - [ ] grant type: apple sign in
 - [ ] storage: faunadb
 
-## Design decisions
-
 SEBA is an opinionated service designed specifically for common mobile or JS web applications. The goal of SEBA is to provide a simple, sensible way to authenticate a user by using an email account as an identity. It is not concerned with granting scoped permissions to a variety of third-party clients.
 
-Email identity can be verified in 2 ways:
+SEBA issues JWT access tokens for your application. It is specifically designed to be run on AWS Lambda using an HTTP API Gateway for invocation, so that you can take advantage of the provided JWT Authorizer. It also supports hardware second-factor attestation using Webauthn.
+
+Email identity can currently be verified in 2 ways:
 
 - Sending a token in an email to an email address (i.e. "magic link")
 - Google sign in authorization code
 
-SEBA issues JWT access tokens for your application. It is specifically designed to be run on AWS Lambda using an HTTP API Gateway for invocation, so that you can take advantage of the provided JWT Authorizer.
+### oAuth 2.0
 
-oAuth 2 is followed in the API design because of its ubiquity - it is a mature protocol and therefore a solid foundation to implement token based security for modern apps. It follows similar conventions to oAuth 2, but with some key differences:
+SEBA is designed to provide simple authentication - not authorization. oAuth 2 is followed in the API design because of its relative ubiquity in industry. It is a mature protocol and therefore a solid foundation to implement token based security for modern apps. The API follows similar conventions to oAuth 2, but with some key differences:
 
 - No Authorization Server or "single-sign-on" style website responsible for authentication and managing the granting of permissions. SEBA provides identity authentication using email verification. Effectively SEBA provides the Token Endpoint, and delegates the Authorization Server to 3rd parties (email services).
 
@@ -34,9 +33,9 @@ oAuth 2 is followed in the API design because of its ubiquity - it is a mature p
 
 - Scope parameter is not used on the token endpoint. This feature is specific to scenarios where the end-user chooses what permissions they want to grant to the clients. Since SEBA is not concerned with authorization at all, it has been left... out of scope.
 
-## Storage
+## Persistence
 
-There is a Storage interface so that multiple providers can be developed.
+There is a Storage interface so that multiple storage backends can be developed.
 
 At the moment there is one provider, DynamoDB. It uses a single-table design to minimise provisioning steps, and allow you to use a truly serverless pay-as-you-use pricing model.
 
@@ -227,3 +226,90 @@ When `sfv` is `true` this means the session can be considered elevated after a h
 The identity token provides the `user_id` as the subject in the same way as the access token, but it additionally provides the email addresses verified by the user.
 
 `sfe`: "Second Factor Enrolled" is `true` if the user has registered at least one hardware 2FA key credential.
+
+### /start_webauthn_registration
+
+Begins the hardware 2FA registration flow. See [here](https://webauthn.io/) for more info.
+
+Request:
+
+```json
+{
+	"refresh_token": "aaaxx"
+}
+```
+
+Response:
+
+```json
+{
+	"challenge_id": "wanchal_1efxx",
+	"attestation_options": {...}
+}
+```
+
+### /complete_webauthn_registration
+
+Registers a hardware 2FA token against a user using the challenge from `/start_webauthn_registration`.
+
+Request:
+
+```json
+{
+	"challenge_id": "wanchal_1efxx",
+	"attestation_response": {...}
+}
+```
+
+Response:
+
+```json
+{
+  "access_token": "eyJ...",
+  "refresh_token": "0fce8Tl4vkZ8IO5qNhwQwmTbCQMDgnY1",
+  "id_token": "eyJ..."
+}
+```
+
+### /start_webauthn_verification
+
+Starts the hardware 2FA verification flow. See [here](https://webauthn.io/) for more info.
+
+Request:
+
+```json
+{
+	"refresh_token": "aaaxx"
+}
+```
+
+Response:
+
+```json
+{
+	"challenge_id": "wanchal_1efxx",
+	"assertion_options": {...}
+}
+```
+
+### /complete_webauthn_verification
+
+Elevates an existing session by asserting the hardware 2FA response using the challenge from `/start_webauthn_verification`.
+
+Request:
+
+```json
+{
+	"challenge_id": "wanchal_1efxx",
+	"assertion_response": {...}
+}
+```
+
+Response:
+
+```json
+{
+  "access_token": "eyJ...",
+  "refresh_token": "0fce8Tl4vkZ8IO5qNhwQwmTbCQMDgnY1",
+  "id_token": "eyJ..."
+}

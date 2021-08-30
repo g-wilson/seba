@@ -4,12 +4,17 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/g-wilson/seba"
+	"github.com/g-wilson/seba/internal/storage"
+	"github.com/g-wilson/seba/internal/token"
 
 	"github.com/g-wilson/runtime/logger"
+	"golang.org/x/sync/errgroup"
 	"gopkg.in/square/go-jose.v2"
 	"gopkg.in/square/go-jose.v2/jwt"
 )
@@ -25,12 +30,18 @@ var (
 	BasicCredentialsTTL = 86400 * 365 * time.Second
 )
 
-// Credentials holds dependencies and meets the seba.CredentialProvider interface
+type CredentialProvider interface {
+	CreateForUser(ctx context.Context, user seba.User, client seba.Client, authnID *string) (*seba.Credentials, error)
+	CreateForUserElevated(ctx context.Context, user seba.User, client seba.Client, authnID *string) (*seba.Credentials, error)
+	CreateBasic(subject string, client seba.Client) (string, error)
+}
+
+// Credentials holds dependencies and meets the CredentialProvider interface
 type Credentials struct {
 	Issuer  string
 	Signer  jose.Signer
-	Storage seba.Storage
-	Token   seba.Token
+	Storage storage.Storage
+	Token   token.Token
 }
 
 // AccessTokenClaims type is used to marshal the access token JWT claims payload
@@ -50,9 +61,27 @@ type IDTokenClaims struct {
 	jwt.Claims
 }
 
+func MustCreateSigner(keyString string) jose.Signer {
+	key := jose.JSONWebKey{}
+	err := key.UnmarshalJSON([]byte(keyString))
+	if err != nil {
+		panic(fmt.Errorf("credentials: error parsing private key: %w", err))
+	}
+	if !key.Valid() {
+		panic(errors.New("credentials: key invalid"))
+	}
+
+	signer, err := jose.NewSigner(jose.SigningKey{Algorithm: jose.RS256, Key: key}, nil)
+	if err != nil {
+		panic(fmt.Errorf("credentials: error creating jwt signer: %w", err))
+	}
+
+	return signer
+}
+
 // CreateForUser creates and signs a JWT for the provided user, client and authentication ID
 // Scopes are always defined on the client config. oAuth style scope granting is not supported.
-func (c *Credentials) CreateForUser(ctx context.Context, user *seba.User, client seba.Client, authnID *string) (creds *seba.Credentials, err error) {
+func (c *Credentials) CreateForUser(ctx context.Context, user seba.User, client seba.Client, authnID *string) (*seba.Credentials, error) {
 	basicClaims := jwt.Claims{
 		Subject:   user.ID,
 		Issuer:    c.Issuer,
@@ -70,15 +99,15 @@ func (c *Credentials) CreateForUser(ctx context.Context, user *seba.User, client
 		Claims(claims).
 		CompactSerialize()
 	if err != nil {
-		return
+		return nil, fmt.Errorf("credentials: %w", err)
 	}
 
 	idToken, err := c.createIDToken(ctx, user.ID, basicClaims)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("credentials: %w", err)
 	}
 
-	creds = &seba.Credentials{
+	creds := &seba.Credentials{
 		AccessToken: accessToken,
 		IDToken:     idToken,
 	}
@@ -86,14 +115,14 @@ func (c *Credentials) CreateForUser(ctx context.Context, user *seba.User, client
 	if client.EnableRefreshTokenGrant {
 		refreshToken, err := c.Token.Generate(32)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("credentials: %w", err)
 		}
 
 		logger.FromContext(ctx).Entry().Debugf("refresh_token: %s", refreshToken)
 
 		_, err = c.Storage.CreateRefreshToken(ctx, user.ID, client.ID, sha256Hex(refreshToken), authnID)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("credentials: %w", err)
 		}
 
 		creds.RefreshToken = refreshToken
@@ -103,7 +132,7 @@ func (c *Credentials) CreateForUser(ctx context.Context, user *seba.User, client
 }
 
 // CreateForUserElevated is the same as CreateForUser but adds claims from a webauthn
-func (c *Credentials) CreateForUserElevated(ctx context.Context, user *seba.User, client seba.Client, authnID *string, isUserVerified bool) (creds *seba.Credentials, err error) {
+func (c *Credentials) CreateForUserElevated(ctx context.Context, user seba.User, client seba.Client, authnID *string) (*seba.Credentials, error) {
 	basicClaims := jwt.Claims{
 		Subject:   user.ID,
 		Issuer:    c.Issuer,
@@ -122,15 +151,15 @@ func (c *Credentials) CreateForUserElevated(ctx context.Context, user *seba.User
 		Claims(claims).
 		CompactSerialize()
 	if err != nil {
-		return
+		return nil, fmt.Errorf("credentials: %w", err)
 	}
 
 	idToken, err := c.createIDToken(ctx, user.ID, basicClaims)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("credentials: %w", err)
 	}
 
-	creds = &seba.Credentials{
+	creds := &seba.Credentials{
 		AccessToken: accessToken,
 		IDToken:     idToken,
 	}
@@ -138,14 +167,14 @@ func (c *Credentials) CreateForUserElevated(ctx context.Context, user *seba.User
 	if client.EnableRefreshTokenGrant {
 		refreshToken, err := c.Token.Generate(32)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("credentials: %w", err)
 		}
 
 		logger.FromContext(ctx).Entry().Debugf("refresh_token: %s", refreshToken)
 
 		_, err = c.Storage.CreateRefreshToken(ctx, user.ID, client.ID, sha256Hex(refreshToken), authnID)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("credentials: %w", err)
 		}
 
 		creds.RefreshToken = refreshToken
@@ -173,8 +202,11 @@ func (c *Credentials) CreateBasic(subject string, client seba.Client) (string, e
 	accessToken, err := jwt.Signed(c.Signer).
 		Claims(claims).
 		CompactSerialize()
+	if err != nil {
+		return "", fmt.Errorf("credentials: %w", err)
+	}
 
-	return accessToken, err
+	return accessToken, nil
 }
 
 func (c *Credentials) createIDToken(ctx context.Context, userID string, claims jwt.Claims) (string, error) {
@@ -183,18 +215,44 @@ func (c *Credentials) createIDToken(ctx context.Context, userID string, claims j
 		Claims: claims,
 	}
 
-	emails, err := c.Storage.ListUserEmails(ctx, userID)
+	g, gctx := errgroup.WithContext(ctx)
+
+	g.Go(func() error {
+		emails, err := c.Storage.ListUserEmails(gctx, userID)
+		if err != nil {
+			return err
+		}
+		for _, em := range emails {
+			idTokenClaims.Emails = append(idTokenClaims.Emails, em.Email)
+		}
+
+		return nil
+	})
+
+	g.Go(func() error {
+		storedCreds, err := c.Storage.ListUserWebauthnCredentials(gctx, userID)
+		if err != nil {
+			return err
+		}
+
+		idTokenClaims.SecondFactorEnrolled = len(storedCreds) > 0
+
+		return nil
+	})
+
+	err := g.Wait()
 	if err != nil {
 		return "", err
 	}
 
-	for _, em := range emails {
-		idTokenClaims.Emails = append(idTokenClaims.Emails, em.Email)
-	}
-
-	return jwt.Signed(c.Signer).
+	idToken, err := jwt.Signed(c.Signer).
 		Claims(idTokenClaims).
 		CompactSerialize()
+	if err != nil {
+		return "", fmt.Errorf("credentials: %w", err)
+	}
+
+	return idToken, nil
 }
 
 func sha256Hex(inputStr string) string {

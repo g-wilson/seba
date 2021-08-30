@@ -10,17 +10,19 @@ import (
 	"time"
 
 	"github.com/g-wilson/seba"
+	"github.com/g-wilson/seba/internal/credentials"
+	"github.com/g-wilson/seba/internal/storage"
+	"github.com/g-wilson/seba/internal/token"
 
 	"github.com/g-wilson/runtime/hand"
-	"github.com/g-wilson/runtime/logger"
 	"golang.org/x/oauth2"
 	"gopkg.in/square/go-jose.v2/jwt"
 )
 
 type Handler struct {
-	Token        seba.Token
-	Storage      seba.Storage
-	Credentials  seba.CredentialProvider
+	Token        token.Token
+	Storage      storage.Storage
+	Credentials  credentials.CredentialProvider
 	Clients      map[string]seba.Client
 	GoogleParams GoogleOauthConfig
 }
@@ -118,17 +120,9 @@ func (h *Handler) useEmailToken(ctx context.Context, token string, client seba.C
 		return nil, err
 	}
 
-	// revoke any authentications which have not been used or have not already been revoked
-	authns, err := h.Storage.ListPendingAuthentications(ctx, authn.Email)
+	err = h.Storage.RevokePendingAuthentications(ctx, authn.Email)
 	if err != nil {
 		return nil, err
-	}
-
-	for _, an := range authns {
-		err = h.Storage.SetAuthenticationRevoked(ctx, an.ID, authn.Email)
-		if err != nil {
-			logger.FromContext(ctx).Entry().WithError(err).Error("revoke authn failed")
-		}
 	}
 
 	return
@@ -161,7 +155,7 @@ func (h *Handler) useRefreshToken(ctx context.Context, token string, client seba
 		return nil, err
 	}
 
-	creds, err := h.Credentials.CreateForUser(ctx, &user, client, rt.AuthenticationID)
+	creds, err := h.Credentials.CreateForUser(ctx, user, client, rt.AuthenticationID)
 	if err != nil {
 		return nil, err
 	}
@@ -221,7 +215,7 @@ func (h *Handler) useGoogleToken(ctx context.Context, code string, client seba.C
 	return h.Credentials.CreateForUser(ctx, user, client, nil)
 }
 
-func (h *Handler) getOrCreateUserByEmail(ctx context.Context, email string) (*seba.User, error) {
+func (h *Handler) getOrCreateUserByEmail(ctx context.Context, email string) (seba.User, error) {
 	createUser := false
 
 	user, err := h.Storage.GetUserByEmail(ctx, email)
@@ -229,20 +223,20 @@ func (h *Handler) getOrCreateUserByEmail(ctx context.Context, email string) (*se
 		if hand.Matches(err, seba.ErrUserNotFound) {
 			createUser = true
 		} else {
-			return nil, err
+			return seba.User{}, err
 		}
 	}
 
 	if createUser {
 		newUser, err := h.Storage.CreateUserWithEmail(ctx, email)
 		if err != nil {
-			return nil, err
+			return seba.User{}, err
 		}
 
 		user = newUser
 	}
 
-	return &user, nil
+	return user, nil
 }
 
 func sha256Hex(inputStr string) string {

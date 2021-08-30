@@ -59,6 +59,50 @@ functions:
       - httpApi:
           path: /2021-09-01/send_authentication_email
           method: post
+  webauthnregistrationstart:
+    handler: bin/webauthnregistrationstart
+    environment:
+      AUTH_DYNAMO_TABLE_NAME: ${self:custom.AUTH_DYNAMO_TABLE_NAME.${self:provider.stage}}
+      AUTH_ISSUER: ${self:custom.AUTH_ISSUER.${self:provider.stage}}
+      WEBAUTHN_DISPLAY_NAME: ${self:custom.WEBAUTHN_DISPLAY_NAME.${self:provider.stage}}
+      WEBAUTHN_ORIGIN: ${self:custom.WEBAUTHN_ORIGIN.${self:provider.stage}}
+    events:
+      - httpApi:
+          path: /2021-09-01/start_webauthn_registration
+          method: post
+  webauthnregistrationcomplete:
+    handler: bin/webauthnregistrationcomplete
+    environment:
+      AUTH_DYNAMO_TABLE_NAME: ${self:custom.AUTH_DYNAMO_TABLE_NAME.${self:provider.stage}}
+      AUTH_ISSUER: ${self:custom.AUTH_ISSUER.${self:provider.stage}}
+      WEBAUTHN_DISPLAY_NAME: ${self:custom.WEBAUTHN_DISPLAY_NAME.${self:provider.stage}}
+      WEBAUTHN_ORIGIN: ${self:custom.WEBAUTHN_ORIGIN.${self:provider.stage}}
+    events:
+      - httpApi:
+          path: /2021-09-01/complete_webauthn_registration
+          method: post
+  webauthnverificationstart:
+    handler: bin/webauthnverificationstart
+    environment:
+      AUTH_DYNAMO_TABLE_NAME: ${self:custom.AUTH_DYNAMO_TABLE_NAME.${self:provider.stage}}
+      AUTH_ISSUER: ${self:custom.AUTH_ISSUER.${self:provider.stage}}
+      WEBAUTHN_DISPLAY_NAME: ${self:custom.WEBAUTHN_DISPLAY_NAME.${self:provider.stage}}
+      WEBAUTHN_ORIGIN: ${self:custom.WEBAUTHN_ORIGIN.${self:provider.stage}}
+    events:
+      - httpApi:
+          path: /2021-09-01/start_webauthn_verification
+          method: post
+  webauthnverificationcomplete:
+    handler: bin/webauthnverificationcomplete
+    environment:
+      AUTH_DYNAMO_TABLE_NAME: ${self:custom.AUTH_DYNAMO_TABLE_NAME.${self:provider.stage}}
+      AUTH_ISSUER: ${self:custom.AUTH_ISSUER.${self:provider.stage}}
+      WEBAUTHN_DISPLAY_NAME: ${self:custom.WEBAUTHN_DISPLAY_NAME.${self:provider.stage}}
+      WEBAUTHN_ORIGIN: ${self:custom.WEBAUTHN_ORIGIN.${self:provider.stage}}
+    events:
+      - httpApi:
+          path: /2021-09-01/complete_webauthn_verification
+          method: post
 
 custom:
   stages:
@@ -81,3 +125,7 @@ custom:
   GOOGLE_OAUTH_SECRET:
     dev: ${env:GOOGLE_OAUTH_SECRET}
     # prod: ${ssm:/seba/prod/GOOGLE_OAUTH_SECRET}
+  WEBAUTHN_DISPLAY_NAME:
+    dev: ${env:WEBAUTHN_DISPLAY_NAME}
+  WEBAUTHN_ORIGIN:
+    dev: ${env:WEBAUTHN_ORIGIN}

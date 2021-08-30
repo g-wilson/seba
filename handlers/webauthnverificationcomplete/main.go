@@ -7,8 +7,9 @@ import (
 	"github.com/g-wilson/seba"
 	"github.com/g-wilson/seba/internal/credentials"
 	"github.com/g-wilson/seba/internal/storage"
-	"github.com/g-wilson/seba/internal/storage/dynamo"
+	dynamo "github.com/g-wilson/seba/internal/storage/dynamo"
 	"github.com/g-wilson/seba/internal/token"
+	"github.com/g-wilson/seba/internal/webauthn"
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go/aws"
@@ -22,7 +23,7 @@ import (
 var fs embed.FS
 
 func main() {
-	log := logger.Create("authenticate", os.Getenv("LOG_FORMAT"), os.Getenv("LOG_LEVEL"))
+	log := logger.Create("webauthn-verification-complete", os.Getenv("LOG_FORMAT"), os.Getenv("LOG_LEVEL"))
 
 	awsConfig := aws.NewConfig().WithRegion(os.Getenv("AWS_REGION"))
 	awsSession := session.Must(session.NewSession())
@@ -34,9 +35,14 @@ func main() {
 		TableName:   os.Getenv("AUTH_DYNAMO_TABLE_NAME"),
 	})
 
-	googleParams := GoogleOauthConfig{
-		ClientID:     os.Getenv("GOOGLE_OAUTH_CLIENT_ID"),
-		ClientSecret: os.Getenv("GOOGLE_OAUTH_SECRET"),
+	webauthn, err := webauthn.New(webauthn.Params{
+		RPDisplayName: os.Getenv("WEBAUTHN_DISPLAY_NAME"),
+		RPID:          os.Getenv("AUTH_ISSUER"),
+		RPOrigin:      os.Getenv("WEBAUTHN_ORIGIN"),
+		Storage:       dynamoStorage,
+	})
+	if err != nil {
+		panic(err)
 	}
 
 	creds := &credentials.Credentials{
@@ -47,16 +53,15 @@ func main() {
 	}
 
 	handler := &Handler{
-		Token:        token.New(),
-		Storage:      dynamoStorage,
-		Credentials:  creds,
-		Clients:      seba.ClientsByID,
-		GoogleParams: googleParams,
+		Storage:     dynamoStorage,
+		Credentials: creds,
+		Clients:     seba.ClientsByID,
+		Webauthn:    webauthn,
 	}
 
 	rpc := rpcmethod.New(rpcmethod.Params{
 		Logger:  log,
-		Name:    "authenticate",
+		Name:    "complete_webauthn_verification",
 		Handler: handler.Do,
 		Schema:  schema.MustLoad(fs, "schema.json"),
 	})

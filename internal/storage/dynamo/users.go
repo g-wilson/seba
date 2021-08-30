@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/g-wilson/seba"
+	"github.com/g-wilson/seba/internal/storage"
 
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/guregu/dynamo"
@@ -43,7 +44,7 @@ func (s *DynamoStorage) GetUserByEmail(ctx context.Context, email string) (seba.
 	err := s.db.Table(s.table).
 		Get("lookup", email).
 		Index("valueLookup").
-		Range("id", dynamo.BeginsWith, seba.TypePrefixEmail).
+		Range("id", dynamo.BeginsWith, storage.TypePrefixEmail).
 		OneWithContext(ctx, emailEnt)
 	if err != nil {
 		if err == dynamo.ErrNotFound {
@@ -58,7 +59,7 @@ func (s *DynamoStorage) GetUserByEmail(ctx context.Context, email string) (seba.
 
 	err = s.db.Table(s.table).
 		Get("id", emailEnt.UserID).
-		Range("relation", dynamo.BeginsWith, seba.TypePrefixUser).
+		Range("relation", dynamo.BeginsWith, storage.TypePrefixUser).
 		OneWithContext(ctx, ent)
 	if err != nil {
 		if err == dynamo.ErrNotFound {
@@ -77,7 +78,7 @@ func (s *DynamoStorage) GetUserByEmail(ctx context.Context, email string) (seba.
 
 func (s *DynamoStorage) CreateUserWithEmail(ctx context.Context, emailAddress string) (seba.User, error) {
 	timestamp := time.Now().UTC()
-	userID := s.generateID(seba.TypePrefixUser)
+	userID := s.generateID(storage.TypePrefixUser)
 
 	user := User{
 		ID:        userID,
@@ -86,7 +87,7 @@ func (s *DynamoStorage) CreateUserWithEmail(ctx context.Context, emailAddress st
 	}
 
 	email := Email{
-		ID:        s.generateID(seba.TypePrefixEmail),
+		ID:        s.generateID(storage.TypePrefixEmail),
 		Email:     emailAddress,
 		CreatedAt: timestamp,
 		UserID:    user.ID,
@@ -128,7 +129,7 @@ func (s *DynamoStorage) ListUserEmails(ctx context.Context, userID string) (ems 
 	err = s.db.Table(s.table).
 		Get("relation", userID).
 		Index("relationLookup").
-		Range("id", dynamo.BeginsWith, seba.TypePrefixEmail).
+		Range("id", dynamo.BeginsWith, storage.TypePrefixEmail).
 		AllWithContext(ctx, &allems)
 	if err != nil {
 		return nil, fmt.Errorf("dynamo: ListUserEmails: %w", err)

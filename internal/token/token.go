@@ -8,7 +8,10 @@ import (
 
 const base62Chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
-// PRNGTokenGenerator meets the seba.Token interface
+type Token interface {
+	Generate(length int) (string, error)
+}
+
 type PRNGTokenGenerator struct{}
 
 func New() *PRNGTokenGenerator {

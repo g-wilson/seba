@@ -27,7 +27,7 @@ type Params struct {
 	TextEmailTemplate *text.Template
 }
 
-// SESEmailer meets the seba.Emailer interface
+// SESEmailer implements the Emailer interface with an AWS SES integration
 type SESEmailer struct {
 	ses    *ses.SES
 	params Params

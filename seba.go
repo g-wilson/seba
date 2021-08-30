@@ -1,23 +1,10 @@
 package seba
 
 import (
-	"context"
-	"fmt"
 	"time"
 
 	"github.com/g-wilson/runtime"
 	"github.com/g-wilson/runtime/hand"
-	"github.com/segmentio/ksuid"
-	"gopkg.in/square/go-jose.v2"
-)
-
-type TypePrefix string
-
-const (
-	TypePrefixAuthentication = TypePrefix("authn")
-	TypePrefixRefreshToken   = TypePrefix("reftok")
-	TypePrefixUser           = TypePrefix("user")
-	TypePrefixEmail          = TypePrefix("email")
 )
 
 const (
@@ -54,11 +41,10 @@ var (
 
 	ErrUserNotFound      = hand.New("user_not_found")
 	ErrUserAlreadyExists = hand.New("user_already_exists")
-)
 
-func GenerateID(t TypePrefix) string {
-	return fmt.Sprintf("%s_%s", t, ksuid.New().String())
-}
+	ErrWebauthnChallengeNotFound  = hand.New("webauthn_challenge_not_found")
+	ErrWebauthnCredentialNotFound = hand.New("webauthn_credential_not_found")
+)
 
 // Client represents one of your applications, e.g. your iOS app
 type Client struct {
@@ -85,6 +71,12 @@ type Client struct {
 
 	// RefreshTokenTTL is a duration during which a refresh_token grant will be valid.
 	RefreshTokenTTL time.Duration
+
+	// EnableWebauthnRegistration will enable the client to register hardware security keys
+	EnableWebauthnRegistration bool
+
+	// EnableWebauthnVerification will enable the client to elevate scopes if a Webauthn challenge is completed
+	EnableWebauthnVerification bool
 }
 
 type Credentials struct {
@@ -130,40 +122,26 @@ type Email struct {
 	RemovedAt *time.Time `json:"removed_at"`
 }
 
-type Token interface {
-	Generate(length int) (string, error)
+type WebauthnCredential struct {
+	ID              string     `json:"id"`
+	UserID          string     `json:"user_id"`
+	CreatedAt       time.Time  `json:"created_at"`
+	RemovedAt       *time.Time `json:"removed_at"`
+	Name            string     `json:"name"`
+	CredentialID    string     `json:"credential_id"`
+	PublicKey       string     `json:"public_key"`
+	AttestationType string     `json:"attestation_type"`
+	AAGUID          string     `json:"aaguid"`
+	UserVerified    bool       `json:"user_verified"`
+	SignCount       int        `json:"sign_count"`
 }
 
-type Storage interface {
-	CreateAuthentication(ctx context.Context, hashedCode, email, challenge, clientID string) (Authentication, error)
-	GetAuthenticationByID(ctx context.Context, authenticationID string) (Authentication, error)
-	GetAuthenticationByHashedCode(ctx context.Context, hashedCode string) (Authentication, error)
-	SetAuthenticationVerified(ctx context.Context, authenticationID, email string) error
-	SetAuthenticationRevoked(ctx context.Context, authenticationID, email string) error
-	ListPendingAuthentications(ctx context.Context, email string) ([]Authentication, error)
-
-	CreateRefreshToken(ctx context.Context, userID, clientID, hashedToken string, authnID *string) (RefreshToken, error)
-	GetRefreshTokenByID(ctx context.Context, reftokID string) (RefreshToken, error)
-	GetRefreshTokenByHashedToken(ctx context.Context, hashedToken string) (RefreshToken, error)
-	SetRefreshTokenUsed(ctx context.Context, reftokID, userID string) error
-
-	GetUserByID(ctx context.Context, userID string) (User, error)
-	GetUserByEmail(ctx context.Context, email string) (User, error)
-	ListUserEmails(ctx context.Context, userID string) ([]Email, error)
-	CreateUserWithEmail(ctx context.Context, emailAddress string) (User, error)
-}
-
-type Emailer interface {
-	SendAuthenticationEmail(ctx context.Context, emailAddress, linkURL string) error
-}
-
-type CredentialProvider interface {
-	CreateForUser(ctx context.Context, user *User, client Client, authnID *string) (*Credentials, error)
-	CreateForUserElevated(ctx context.Context, user *User, client Client, authnID *string, isUserVerified bool) (*Credentials, error)
-	CreateBasic(subject string, client Client) (string, error)
-}
-
-type JWTKeyProvider interface {
-	GetSigner() (jose.Signer, error)
-	GetPublicKey() (jose.JSONWebKey, error)
+type WebauthnChallenge struct {
+	ID            string    `json:"id"`
+	UserID        string    `json:"user_id"`
+	SessionID     string    `json:"session_id"`
+	CreatedAt     time.Time `json:"created_at"`
+	ChallengeType string    `json:"challenge_type"`
+	Challenge     string    `json:"challenge"`
+	CredentialIDs []string  `json:"credential_ids"`
 }

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/g-wilson/seba"
+	"github.com/g-wilson/seba/internal/storage"
 
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/guregu/dynamo"
@@ -16,7 +17,7 @@ func (s *DynamoStorage) CreateRefreshToken(ctx context.Context, userID, clientID
 	timestamp := time.Now().UTC()
 
 	ent := RefreshToken{
-		ID:          s.generateID(seba.TypePrefixRefreshToken),
+		ID:          s.generateID(storage.TypePrefixRefreshToken),
 		CreatedAt:   timestamp,
 		UserID:      userID,
 		ClientID:    clientID,
@@ -42,7 +43,7 @@ func (s *DynamoStorage) GetRefreshTokenByID(ctx context.Context, reftokID string
 
 	err := s.db.Table(s.table).
 		Get("id", reftokID).
-		Range("relation", dynamo.BeginsWith, seba.TypePrefixUser).
+		Range("relation", dynamo.BeginsWith, storage.TypePrefixUser).
 		OneWithContext(ctx, ent)
 	if err != nil {
 		if err == dynamo.ErrNotFound {
@@ -63,7 +64,7 @@ func (s *DynamoStorage) GetRefreshTokenByHashedToken(ctx context.Context, hashed
 	err := s.db.Table(s.table).
 		Get("lookup", hashedToken).
 		Index("valueLookup").
-		Range("id", dynamo.BeginsWith, seba.TypePrefixRefreshToken).
+		Range("id", dynamo.BeginsWith, storage.TypePrefixRefreshToken).
 		OneWithContext(ctx, ent)
 	if err != nil {
 		if err == dynamo.ErrNotFound {

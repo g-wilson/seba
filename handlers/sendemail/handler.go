@@ -8,15 +8,18 @@ import (
 	"net/url"
 
 	"github.com/g-wilson/seba"
+	"github.com/g-wilson/seba/internal/emailer"
+	"github.com/g-wilson/seba/internal/storage"
+	"github.com/g-wilson/seba/internal/token"
 
 	"github.com/g-wilson/runtime/logger"
 )
 
 type Handler struct {
-	Storage seba.Storage
-	Emailer seba.Emailer
+	Storage storage.Storage
+	Emailer emailer.Emailer
+	Token   token.Token
 	Clients map[string]seba.Client
-	Token   seba.Token
 }
 
 type Request struct {

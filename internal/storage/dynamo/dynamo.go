@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/g-wilson/seba"
+	"github.com/g-wilson/seba/internal/storage"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -11,7 +12,7 @@ import (
 )
 
 type Params struct {
-	IDGenerator func(t seba.TypePrefix) string
+	IDGenerator func(t storage.TypePrefix) string
 	AWSSession  *session.Session
 	AWSConfig   *aws.Config
 	TableName   string
@@ -19,7 +20,7 @@ type Params struct {
 
 // DynamoStorage meets the seba.Storage interface
 type DynamoStorage struct {
-	generateID func(t seba.TypePrefix) string
+	generateID func(t storage.TypePrefix) string
 	db         *dynamo.DB
 	table      string
 }
@@ -111,5 +112,57 @@ func (e Email) ToApp() seba.Email {
 		UserID:    e.UserID,
 		CreatedAt: e.CreatedAt,
 		RemovedAt: e.RemovedAt,
+	}
+}
+
+type WebauthnCredential struct {
+	ID              string     `dynamo:"id"`
+	UserID          string     `dynamo:"relation"`
+	CreatedAt       time.Time  `dynamo:"created_at,unixtime"`
+	RemovedAt       *time.Time `dynamo:"removed_at,unixtime"`
+	Name            string     `dynamo:"name"`
+	CredentialID    string     `dynamo:"lookup_value"`
+	PublicKey       string     `dynamo:"public_key"`
+	AttestationType string     `dynamo:"attestation_type"`
+	AAGUID          string     `dynamo:"aaguid"`
+	UserVerified    bool       `dynamo:"user_verified"`
+	SignCount       int        `dynamo:"sign_count"`
+}
+
+func (c WebauthnCredential) ToApp() seba.WebauthnCredential {
+	return seba.WebauthnCredential{
+		ID:              c.ID,
+		UserID:          c.UserID,
+		CreatedAt:       c.CreatedAt,
+		RemovedAt:       c.RemovedAt,
+		Name:            c.Name,
+		CredentialID:    c.CredentialID,
+		PublicKey:       c.PublicKey,
+		AttestationType: c.AttestationType,
+		AAGUID:          c.AAGUID,
+		UserVerified:    c.UserVerified,
+		SignCount:       c.SignCount,
+	}
+}
+
+type WebauthnChallenge struct {
+	ID            string    `dynamo:"id"`
+	UserID        string    `dynamo:"user_id"`
+	SessionID     string    `dynamo:"session_id"`
+	CreatedAt     time.Time `dynamo:"created_at,unixtime"`
+	ChallengeType string    `dynamo:"challenge_type"`
+	Challenge     string    `dynamo:"challenge"`
+	CredentialIDs []string  `dynamo:"credential_ids,set"`
+}
+
+func (c WebauthnChallenge) ToApp() seba.WebauthnChallenge {
+	return seba.WebauthnChallenge{
+		ID:            c.ID,
+		UserID:        c.UserID,
+		SessionID:     c.SessionID,
+		CreatedAt:     c.CreatedAt,
+		ChallengeType: c.ChallengeType,
+		Challenge:     c.Challenge,
+		CredentialIDs: c.CredentialIDs,
 	}
 }
