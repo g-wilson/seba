@@ -75,6 +75,7 @@ functions:
     environment:
       AUTH_DYNAMO_TABLE_NAME: ${self:custom.AUTH_DYNAMO_TABLE_NAME.${self:provider.stage}}
       AUTH_ISSUER: ${self:custom.AUTH_ISSUER.${self:provider.stage}}
+      AUTH_PRIVATE_KEY: ${self:custom.AUTH_PRIVATE_KEY.${self:provider.stage}}
       WEBAUTHN_DISPLAY_NAME: ${self:custom.WEBAUTHN_DISPLAY_NAME.${self:provider.stage}}
       WEBAUTHN_ORIGIN: ${self:custom.WEBAUTHN_ORIGIN.${self:provider.stage}}
     events:
@@ -97,6 +98,7 @@ functions:
     environment:
       AUTH_DYNAMO_TABLE_NAME: ${self:custom.AUTH_DYNAMO_TABLE_NAME.${self:provider.stage}}
       AUTH_ISSUER: ${self:custom.AUTH_ISSUER.${self:provider.stage}}
+      AUTH_PRIVATE_KEY: ${self:custom.AUTH_PRIVATE_KEY.${self:provider.stage}}
       WEBAUTHN_DISPLAY_NAME: ${self:custom.WEBAUTHN_DISPLAY_NAME.${self:provider.stage}}
       WEBAUTHN_ORIGIN: ${self:custom.WEBAUTHN_ORIGIN.${self:provider.stage}}
     events:
