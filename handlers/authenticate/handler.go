@@ -1,15 +1,15 @@
-package app
+package main
 
 import (
 	"context"
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"time"
 
 	"github.com/g-wilson/seba"
-	"github.com/g-wilson/seba/internal/storage"
 
 	"github.com/g-wilson/runtime/hand"
 	"github.com/g-wilson/runtime/logger"
@@ -17,9 +17,32 @@ import (
 	"gopkg.in/square/go-jose.v2/jwt"
 )
 
-// Authenticate is the RPC handler for authentication endpoint
-func (a *App) Authenticate(ctx context.Context, req *seba.AuthenticateRequest) (res *seba.AuthenticateResponse, err error) {
-	client, ok := a.clientsByID[req.ClientID]
+type Handler struct {
+	Token        seba.Token
+	Storage      seba.Storage
+	Credentials  seba.CredentialProvider
+	Clients      map[string]seba.Client
+	GoogleParams GoogleOauthConfig
+}
+
+type GoogleOauthConfig struct {
+	ClientID     string
+	ClientSecret string
+}
+
+type Request struct {
+	GrantType    string  `json:"grant_type"`
+	Code         string  `json:"code"`
+	ClientID     string  `json:"client_id"`
+	PKCEVerifier *string `json:"pkce_verifier,omitempty"`
+}
+
+type Response struct {
+	*seba.Credentials
+}
+
+func (h *Handler) Do(ctx context.Context, req *Request) (res *Response, err error) {
+	client, ok := h.Clients[req.ClientID]
 	if !ok {
 		return nil, seba.ErrClientNotFound
 	}
@@ -28,11 +51,11 @@ func (a *App) Authenticate(ctx context.Context, req *seba.AuthenticateRequest) (
 
 	switch req.GrantType {
 	case seba.GrantTypeEmailToken:
-		creds, err = a.useEmailToken(ctx, req.Code, client, req.PKCEVerifier)
+		creds, err = h.useEmailToken(ctx, req.Code, client, req.PKCEVerifier)
 	case seba.GrantTypeRefreshToken:
-		creds, err = a.useRefreshToken(ctx, req.Code, client)
+		creds, err = h.useRefreshToken(ctx, req.Code, client)
 	case seba.GrantTypeGoogle:
-		creds, err = a.useGoogleToken(ctx, req.Code, client)
+		creds, err = h.useGoogleToken(ctx, req.Code, client)
 	default:
 		err = seba.ErrUnsupportedGrantType // should not happen
 	}
@@ -40,11 +63,11 @@ func (a *App) Authenticate(ctx context.Context, req *seba.AuthenticateRequest) (
 		return nil, err
 	}
 
-	return &seba.AuthenticateResponse{Credentials: creds}, nil
+	return &Response{Credentials: creds}, nil
 }
 
-func (a *App) useEmailToken(ctx context.Context, token string, client seba.Client, verifier *string) (creds *seba.Credentials, err error) {
-	if !client.EmailGrantEnabled() {
+func (h *Handler) useEmailToken(ctx context.Context, token string, client seba.Client, verifier *string) (creds *seba.Credentials, err error) {
+	if !client.EnableEmailGrant {
 		return nil, seba.ErrNotSupportedByClient
 	}
 
@@ -52,7 +75,7 @@ func (a *App) useEmailToken(ctx context.Context, token string, client seba.Clien
 		return nil, seba.ErrPKCEVerifierRequired
 	}
 
-	authn, err := a.Storage.GetAuthenticationByHashedCode(ctx, sha256Hex(token))
+	authn, err := h.Storage.GetAuthenticationByHashedCode(ctx, sha256Hex(token))
 	if err != nil {
 		return nil, err
 	}
@@ -80,26 +103,29 @@ func (a *App) useEmailToken(ctx context.Context, token string, client seba.Clien
 		return nil, seba.ErrPKCEChallengeFailed
 	}
 
-	user, err := a.getOrCreateUserByEmail(ctx, authn.Email)
+	user, err := h.getOrCreateUserByEmail(ctx, authn.Email)
 	if err != nil {
 		return nil, err
 	}
 
-	creds, err = a.CreateUserCredentials(ctx, user, client, &authn.ID)
+	creds, err = h.Credentials.CreateForUser(ctx, user, client, &authn.ID)
 	if err != nil {
 		return nil, err
 	}
 
-	err = a.Storage.SetAuthenticationVerified(ctx, authn.ID, authn.Email)
+	err = h.Storage.SetAuthenticationVerified(ctx, authn.ID, authn.Email)
+	if err != nil {
+		return nil, err
+	}
 
 	// revoke any authentications which have not been used or have not already been revoked
-	authns, err := a.Storage.ListPendingAuthentications(ctx, authn.Email)
+	authns, err := h.Storage.ListPendingAuthentications(ctx, authn.Email)
 	if err != nil {
 		return nil, err
 	}
 
 	for _, an := range authns {
-		err = a.Storage.SetAuthenticationRevoked(ctx, an.ID, authn.Email)
+		err = h.Storage.SetAuthenticationRevoked(ctx, an.ID, authn.Email)
 		if err != nil {
 			logger.FromContext(ctx).Entry().WithError(err).Error("revoke authn failed")
 		}
@@ -108,12 +134,12 @@ func (a *App) useEmailToken(ctx context.Context, token string, client seba.Clien
 	return
 }
 
-func (a *App) useRefreshToken(ctx context.Context, token string, client seba.Client) (*seba.Credentials, error) {
-	if !client.RefreshGrantEnabed() {
+func (h *Handler) useRefreshToken(ctx context.Context, token string, client seba.Client) (*seba.Credentials, error) {
+	if !client.EnableRefreshTokenGrant {
 		return nil, seba.ErrNotSupportedByClient
 	}
 
-	rt, err := a.Storage.GetRefreshTokenByHashedToken(ctx, sha256Hex(token))
+	rt, err := h.Storage.GetRefreshTokenByHashedToken(ctx, sha256Hex(token))
 	if err != nil {
 		return nil, err
 	}
@@ -130,17 +156,17 @@ func (a *App) useRefreshToken(ctx context.Context, token string, client seba.Cli
 		return nil, seba.ErrRefreshTokenExpired
 	}
 
-	user, err := a.Storage.GetUserByID(ctx, rt.UserID)
+	user, err := h.Storage.GetUserByID(ctx, rt.UserID)
 	if err != nil {
 		return nil, err
 	}
 
-	creds, err := a.CreateUserCredentials(ctx, user, client, rt.AuthenticationID)
+	creds, err := h.Credentials.CreateForUser(ctx, &user, client, rt.AuthenticationID)
 	if err != nil {
 		return nil, err
 	}
 
-	err = a.Storage.SetRefreshTokenUsed(ctx, rt.ID, user.ID)
+	err = h.Storage.SetRefreshTokenUsed(ctx, rt.ID, user.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -148,12 +174,18 @@ func (a *App) useRefreshToken(ctx context.Context, token string, client seba.Cli
 	return creds, nil
 }
 
-func (a *App) useGoogleToken(ctx context.Context, code string, client seba.Client) (*seba.Credentials, error) {
-	if !client.GoogleGrantEnabled() {
+func (h *Handler) useGoogleToken(ctx context.Context, code string, client seba.Client) (*seba.Credentials, error) {
+	if !client.EnableEmailGrant {
 		return nil, seba.ErrNotSupportedByClient
 	}
 
-	gResp, err := client.GoogleConfig.Exchange(ctx, code, oauth2.AccessTypeOffline)
+	googleConfig := &oauth2.Config{
+		ClientID:     h.GoogleParams.ClientID,
+		ClientSecret: h.GoogleParams.ClientSecret,
+		RedirectURL:  client.CallbackURL,
+	}
+
+	gResp, err := googleConfig.Exchange(ctx, code, oauth2.AccessTypeOffline)
 	if err != nil {
 		return nil, err
 	}
@@ -181,28 +213,28 @@ func (a *App) useGoogleToken(ctx context.Context, code string, client seba.Clien
 		return nil, seba.ErrEmailNotVerified.WithMessage("Email address must be verified before using Google")
 	}
 
-	user, err := a.getOrCreateUserByEmail(ctx, cl.Email)
+	user, err := h.getOrCreateUserByEmail(ctx, cl.Email)
 	if err != nil {
 		return nil, err
 	}
 
-	return a.CreateUserCredentials(ctx, user, client, nil)
+	return h.Credentials.CreateForUser(ctx, user, client, nil)
 }
 
-func (a *App) getOrCreateUserByEmail(ctx context.Context, email string) (user *storage.User, err error) {
+func (h *Handler) getOrCreateUserByEmail(ctx context.Context, email string) (*seba.User, error) {
 	createUser := false
 
-	user, err = a.Storage.GetUserByEmail(ctx, email)
+	user, err := h.Storage.GetUserByEmail(ctx, email)
 	if err != nil {
 		if hand.Matches(err, seba.ErrUserNotFound) {
 			createUser = true
 		} else {
-			return
+			return nil, err
 		}
 	}
 
 	if createUser {
-		newUser, err := a.Storage.CreateUserWithEmail(ctx, email)
+		newUser, err := h.Storage.CreateUserWithEmail(ctx, email)
 		if err != nil {
 			return nil, err
 		}
@@ -210,5 +242,11 @@ func (a *App) getOrCreateUserByEmail(ctx context.Context, email string) (user *s
 		user = newUser
 	}
 
-	return
+	return &user, nil
+}
+
+func sha256Hex(inputStr string) string {
+	hash := sha256.New()
+	hash.Write([]byte(inputStr))
+	return hex.EncodeToString(hash.Sum(nil))
 }

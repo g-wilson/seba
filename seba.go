@@ -1,26 +1,29 @@
 package seba
 
 import (
-	"text/template"
+	"context"
+	"fmt"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	webauthnProtocol "github.com/duo-labs/webauthn/protocol"
 	"github.com/g-wilson/runtime"
 	"github.com/g-wilson/runtime/hand"
-	"golang.org/x/oauth2"
+	"github.com/segmentio/ksuid"
+	"gopkg.in/square/go-jose.v2"
+)
+
+type TypePrefix string
+
+const (
+	TypePrefixAuthentication = TypePrefix("authn")
+	TypePrefixRefreshToken   = TypePrefix("reftok")
+	TypePrefixUser           = TypePrefix("user")
+	TypePrefixEmail          = TypePrefix("email")
 )
 
 const (
-	// ScopeSebaAdmin identifies an access token with user management permissions
-	ScopeSebaAdmin = "seba:admin"
-
 	GrantTypeEmailToken   = "email_token"
 	GrantTypeRefreshToken = "refresh_token"
 	GrantTypeGoogle       = "google_authz_code"
-
-	APIGatewayClient = "client_awsapigateway"
 )
 
 var (
@@ -51,39 +54,10 @@ var (
 
 	ErrUserNotFound      = hand.New("user_not_found")
 	ErrUserAlreadyExists = hand.New("user_already_exists")
-
-	ErrWebauthnChallengeNotFound  = hand.New("webauthn_challenge_not_found")
-	ErrWebauthnCredentialNotFound = hand.New("webauthn_credential_not_found")
 )
 
-// Config type is used as the argument to the app constructor
-type Config struct {
-	LogLevel  string
-	LogFormat string
-
-	AWSConfig       *aws.Config
-	AWSSession      *session.Session
-	DynamoTableName string
-
-	ActuallySendEmails bool
-	EmailConfig        EmailConfig
-
-	JWTPrivateKey string
-	JWTIssuer     string
-
-	WebauthnDisplayName string
-	WebauthnID          string
-
-	Clients []Client
-}
-
-// EmailConfig type is a group of settings for emails
-type EmailConfig struct {
-	DefaultReplyAddress string
-	DefaultFromAddress  string
-
-	AuthnEmailSubject  string
-	AuthnEmailTemplate *template.Template
+func GenerateID(t TypePrefix) string {
+	return fmt.Sprintf("%s_%s", t, ksuid.New().String())
 }
 
 // Client represents one of your applications, e.g. your iOS app
@@ -94,33 +68,23 @@ type Client struct {
 	// DefaultScopes is the list of scope strings to be issued in the access token JWT.
 	DefaultScopes []string
 
-	// EmailAuthenticationURL is the callback URL for magic link style authentication emails. Leave empty to disable email_token grant type.
-	EmailAuthenticationURL string
+	// DefaultAudience is the list of aud strings to be issued in the access token JWT.
+	DefaultAudience []string
 
-	// RefreshTokenTTL is a duration during which a refresh_token grant will be valid. Set to zero to disable refresh_token grant type.
+	// CallbackURL is the callback URL where the user will be redirected after authentication via magic link or google sign in.
+	CallbackURL string
+
+	// EnableEmailGrant will enable magic link functionality.
+	EnableEmailGrant bool
+
+	// EnableGoogleGrant will enable sign in with Google functionality.
+	EnableGoogleGrant bool
+
+	// EnableRefreshTokenGrant will enable session extension via refresh tokens.
+	EnableRefreshTokenGrant bool
+
+	// RefreshTokenTTL is a duration during which a refresh_token grant will be valid.
 	RefreshTokenTTL time.Duration
-
-	// GoogleConfig is used to create the google API client to exchange the authorization code. Leave empty to disable google_authz_code grant type.
-	GoogleConfig *oauth2.Config
-
-	// WebauthnOrigin is used to validate webauthn requests against a web page. Leave empty to disable webauthn functionality.
-	WebauthnOrigin string
-}
-
-func (c *Client) GoogleGrantEnabled() bool {
-	return c.GoogleConfig != nil
-}
-
-func (c *Client) RefreshGrantEnabed() bool {
-	return c.RefreshTokenTTL > 0*time.Second
-}
-
-func (c *Client) EmailGrantEnabled() bool {
-	return c.EmailAuthenticationURL != ""
-}
-
-func (c *Client) WebauthnEnabled() bool {
-	return c.WebauthnOrigin != ""
 }
 
 type Credentials struct {
@@ -129,56 +93,77 @@ type Credentials struct {
 	IDToken      string `json:"id_token"`
 }
 
-type AuthenticateRequest struct {
-	GrantType    string  `json:"grant_type"`
-	Code         string  `json:"code"`
-	ClientID     string  `json:"client_id"`
-	PKCEVerifier *string `json:"pkce_verifier,omitempty"`
+type Authentication struct {
+	ID            string     `json:"id"`
+	Email         string     `json:"email"`
+	HashedCode    string     `json:"hashed_code"`
+	CreatedAt     time.Time  `json:"created_at"`
+	VerifiedAt    *time.Time `json:"verified_at"`
+	RevokedAt     *time.Time `json:"revoked_at"`
+	ClientID      string     `json:"client_id"`
+	PKCEChallenge string     `json:"pkce_challenge"`
 }
 
-type AuthenticateResponse struct {
-	*Credentials
+type RefreshToken struct {
+	ID               string     `json:"id"`
+	UserID           string     `json:"user_id"`
+	HashedToken      string     `json:"hashed_token"`
+	CreatedAt        time.Time  `json:"created_at"`
+	UsedAt           *time.Time `json:"used_at"`
+	ClientID         string     `json:"client_id"`
+	AuthenticationID *string    `json:"authentication_id"`
 }
 
-type SendAuthenticationEmailRequest struct {
-	Email         string `json:"email"`
-	State         string `json:"state"`
-	ClientID      string `json:"client_id"`
-	PKCEChallenge string `json:"pkce_challenge"`
+type User struct {
+	ID        string     `json:"id"`
+	CreatedAt time.Time  `json:"created_at"`
+	RemovedAt *time.Time `json:"removed_at"`
+
+	Relation string `json:"-"`
 }
 
-type StartWebauthnRegistrationRequest struct {
-	RefreshToken string `json:"refresh_token"`
+type Email struct {
+	ID        string     `json:"id"`
+	Email     string     `json:"email"`
+	UserID    string     `json:"user_id"`
+	CreatedAt time.Time  `json:"created_at"`
+	RemovedAt *time.Time `json:"removed_at"`
 }
 
-type StartWebauthnRegistrationResponse struct {
-	ChallengeID        string                                              `json:"challenge_id"`
-	AttestationOptions webauthnProtocol.PublicKeyCredentialCreationOptions `json:"attestation_options"`
+type Token interface {
+	Generate(length int) (string, error)
 }
 
-type CompleteWebauthnRegistrationRequest struct {
-	ChallengeID         string `json:"challenge_id"`
-	AttestationResponse string `json:"attestation_response"`
+type Storage interface {
+	CreateAuthentication(ctx context.Context, hashedCode, email, challenge, clientID string) (Authentication, error)
+	GetAuthenticationByID(ctx context.Context, authenticationID string) (Authentication, error)
+	GetAuthenticationByHashedCode(ctx context.Context, hashedCode string) (Authentication, error)
+	SetAuthenticationVerified(ctx context.Context, authenticationID, email string) error
+	SetAuthenticationRevoked(ctx context.Context, authenticationID, email string) error
+	ListPendingAuthentications(ctx context.Context, email string) ([]Authentication, error)
+
+	CreateRefreshToken(ctx context.Context, userID, clientID, hashedToken string, authnID *string) (RefreshToken, error)
+	GetRefreshTokenByID(ctx context.Context, reftokID string) (RefreshToken, error)
+	GetRefreshTokenByHashedToken(ctx context.Context, hashedToken string) (RefreshToken, error)
+	SetRefreshTokenUsed(ctx context.Context, reftokID, userID string) error
+
+	GetUserByID(ctx context.Context, userID string) (User, error)
+	GetUserByEmail(ctx context.Context, email string) (User, error)
+	ListUserEmails(ctx context.Context, userID string) ([]Email, error)
+	CreateUserWithEmail(ctx context.Context, emailAddress string) (User, error)
 }
 
-type CompleteWebauthnRegistrationResponse struct {
-	*Credentials
+type Emailer interface {
+	SendAuthenticationEmail(ctx context.Context, emailAddress, linkURL string) error
 }
 
-type StartWebauthnVerificationRequest struct {
-	RefreshToken string `json:"refresh_token"`
+type CredentialProvider interface {
+	CreateForUser(ctx context.Context, user *User, client Client, authnID *string) (*Credentials, error)
+	CreateForUserElevated(ctx context.Context, user *User, client Client, authnID *string, isUserVerified bool) (*Credentials, error)
+	CreateBasic(subject string, client Client) (string, error)
 }
 
-type StartWebauthnVerificationResponse struct {
-	ChallengeID      string                                             `json:"challenge_id"`
-	AssertionOptions webauthnProtocol.PublicKeyCredentialRequestOptions `json:"assertion_options"`
-}
-
-type CompleteWebauthnVerificationRequest struct {
-	ChallengeID       string `json:"challenge_id"`
-	AssertionResponse string `json:"assertion_response"`
-}
-
-type CompleteWebauthnVerificationResponse struct {
-	*Credentials
+type JWTKeyProvider interface {
+	GetSigner() (jose.Signer, error)
+	GetPublicKey() (jose.JSONWebKey, error)
 }

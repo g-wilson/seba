@@ -1,4 +1,4 @@
-package storage
+package dynamo
 
 import (
 	"context"
@@ -12,11 +12,11 @@ import (
 	"github.com/guregu/dynamo"
 )
 
-func (s *DynamoStorage) CreateRefreshToken(ctx context.Context, userID, clientID, hashedToken string, authnID *string) (ent *RefreshToken, err error) {
+func (s *DynamoStorage) CreateRefreshToken(ctx context.Context, userID, clientID, hashedToken string, authnID *string) (seba.RefreshToken, error) {
 	timestamp := time.Now().UTC()
 
-	ent = &RefreshToken{
-		ID:          generateID(TypePrefixRefreshToken),
+	ent := RefreshToken{
+		ID:          s.generateID(seba.TypePrefixRefreshToken),
 		CreatedAt:   timestamp,
 		UserID:      userID,
 		ClientID:    clientID,
@@ -27,22 +27,22 @@ func (s *DynamoStorage) CreateRefreshToken(ctx context.Context, userID, clientID
 		ent.AuthenticationID = authnID
 	}
 
-	err = s.db.Table(s.table).
+	err := s.db.Table(s.table).
 		Put(ent).
 		RunWithContext(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("dynamo: CreateRefreshToken: %w", err)
+		return seba.RefreshToken{}, fmt.Errorf("dynamo: CreateRefreshToken: %w", err)
 	}
 
-	return
+	return ent.ToApp(), nil
 }
 
-func (s *DynamoStorage) GetRefreshTokenByID(ctx context.Context, reftokID string) (ent *RefreshToken, err error) {
-	ent = &RefreshToken{}
+func (s *DynamoStorage) GetRefreshTokenByID(ctx context.Context, reftokID string) (seba.RefreshToken, error) {
+	ent := RefreshToken{}
 
-	err = s.db.Table(s.table).
+	err := s.db.Table(s.table).
 		Get("id", reftokID).
-		Range("relation", dynamo.BeginsWith, TypePrefixUser).
+		Range("relation", dynamo.BeginsWith, seba.TypePrefixUser).
 		OneWithContext(ctx, ent)
 	if err != nil {
 		if err == dynamo.ErrNotFound {
@@ -50,18 +50,20 @@ func (s *DynamoStorage) GetRefreshTokenByID(ctx context.Context, reftokID string
 		} else {
 			err = fmt.Errorf("dynamo: GetRefreshTokenByID: %w", err)
 		}
+
+		return seba.RefreshToken{}, err
 	}
 
-	return
+	return ent.ToApp(), nil
 }
 
-func (s *DynamoStorage) GetRefreshTokenByHashedToken(ctx context.Context, hashedToken string) (ent *RefreshToken, err error) {
-	ent = &RefreshToken{}
+func (s *DynamoStorage) GetRefreshTokenByHashedToken(ctx context.Context, hashedToken string) (seba.RefreshToken, error) {
+	ent := RefreshToken{}
 
-	err = s.db.Table(s.table).
-		Get("lookup_value", hashedToken).
+	err := s.db.Table(s.table).
+		Get("lookup", hashedToken).
 		Index("valueLookup").
-		Range("id", dynamo.BeginsWith, TypePrefixRefreshToken).
+		Range("id", dynamo.BeginsWith, seba.TypePrefixRefreshToken).
 		OneWithContext(ctx, ent)
 	if err != nil {
 		if err == dynamo.ErrNotFound {
@@ -69,9 +71,11 @@ func (s *DynamoStorage) GetRefreshTokenByHashedToken(ctx context.Context, hashed
 		} else {
 			err = fmt.Errorf("dynamo: GetRefreshTokenByHashedToken: %w", err)
 		}
+
+		return seba.RefreshToken{}, err
 	}
 
-	return
+	return ent.ToApp(), nil
 }
 
 func (s *DynamoStorage) SetRefreshTokenUsed(ctx context.Context, reftokID, userID string) (err error) {

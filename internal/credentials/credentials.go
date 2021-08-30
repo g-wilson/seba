@@ -1,15 +1,16 @@
-package app
+package credentials
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"strings"
 	"time"
 
 	"github.com/g-wilson/seba"
-	"github.com/g-wilson/seba/internal/storage"
-	"github.com/g-wilson/seba/internal/token"
 
-	"golang.org/x/sync/errgroup"
+	"github.com/g-wilson/runtime/logger"
+	"gopkg.in/square/go-jose.v2"
 	"gopkg.in/square/go-jose.v2/jwt"
 )
 
@@ -23,6 +24,14 @@ var (
 	// BasicCredentialsTTL is the duration of validity for a basic access token
 	BasicCredentialsTTL = 86400 * 365 * time.Second
 )
+
+// Credentials holds dependencies and meets the seba.CredentialProvider interface
+type Credentials struct {
+	Issuer  string
+	Signer  jose.Signer
+	Storage seba.Storage
+	Token   seba.Token
+}
 
 // AccessTokenClaims type is used to marshal the access token JWT claims payload
 type AccessTokenClaims struct {
@@ -41,13 +50,13 @@ type IDTokenClaims struct {
 	jwt.Claims
 }
 
-// CreateUserCredentials creates and signs a JWT for the provided user, client and authentication ID
+// CreateForUser creates and signs a JWT for the provided user, client and authentication ID
 // Scopes are always defined on the client config. oAuth style scope granting is not supported.
-func (a *App) CreateUserCredentials(ctx context.Context, user *storage.User, client seba.Client, authnID *string) (creds *seba.Credentials, err error) {
+func (c *Credentials) CreateForUser(ctx context.Context, user *seba.User, client seba.Client, authnID *string) (creds *seba.Credentials, err error) {
 	basicClaims := jwt.Claims{
 		Subject:   user.ID,
-		Issuer:    a.jwtConfig.Issuer,
-		Audience:  jwt.Audience{seba.APIGatewayClient},
+		Issuer:    c.Issuer,
+		Audience:  client.DefaultAudience,
 		Expiry:    jwt.NewNumericDate(time.Now().UTC().Add(UserCredentialsTTL)),
 		IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
 		NotBefore: jwt.NewNumericDate(time.Now().UTC()),
@@ -57,14 +66,14 @@ func (a *App) CreateUserCredentials(ctx context.Context, user *storage.User, cli
 		Scope:    strings.Join(client.DefaultScopes, " "),
 		Claims:   basicClaims,
 	}
-	accessToken, err := jwt.Signed(a.jwtConfig.Signer).
+	accessToken, err := jwt.Signed(c.Signer).
 		Claims(claims).
 		CompactSerialize()
 	if err != nil {
 		return
 	}
 
-	idToken, err := a.createIDToken(ctx, user.ID, basicClaims)
+	idToken, err := c.createIDToken(ctx, user.ID, basicClaims)
 	if err != nil {
 		return nil, err
 	}
@@ -74,15 +83,15 @@ func (a *App) CreateUserCredentials(ctx context.Context, user *storage.User, cli
 		IDToken:     idToken,
 	}
 
-	if client.RefreshGrantEnabed() {
-		refreshToken, err := token.GenerateToken(32)
+	if client.EnableRefreshTokenGrant {
+		refreshToken, err := c.Token.Generate(32)
 		if err != nil {
 			return nil, err
 		}
 
-		a.Logger.Debugf("refresh_token: %s", refreshToken)
+		logger.FromContext(ctx).Entry().Debugf("refresh_token: %s", refreshToken)
 
-		_, err = a.Storage.CreateRefreshToken(ctx, user.ID, client.ID, sha256Hex(refreshToken), authnID)
+		_, err = c.Storage.CreateRefreshToken(ctx, user.ID, client.ID, sha256Hex(refreshToken), authnID)
 		if err != nil {
 			return nil, err
 		}
@@ -93,30 +102,30 @@ func (a *App) CreateUserCredentials(ctx context.Context, user *storage.User, cli
 	return creds, nil
 }
 
-// CreateElevatedUserCredentials is the same as CreateUserCredentials but adds claims from a webauthn
-func (a *App) CreateElevatedUserCredentials(ctx context.Context, user *storage.User, client seba.Client, authnID *string, isUserVerified bool) (creds *seba.Credentials, err error) {
+// CreateForUserElevated is the same as CreateForUser but adds claims from a webauthn
+func (c *Credentials) CreateForUserElevated(ctx context.Context, user *seba.User, client seba.Client, authnID *string, isUserVerified bool) (creds *seba.Credentials, err error) {
 	basicClaims := jwt.Claims{
 		Subject:   user.ID,
-		Issuer:    a.jwtConfig.Issuer,
-		Audience:  jwt.Audience{seba.APIGatewayClient},
+		Issuer:    c.Issuer,
+		Audience:  client.DefaultAudience,
 		Expiry:    jwt.NewNumericDate(time.Now().UTC().Add(ElevatedUserCredentialsTTL)),
 		IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
 		NotBefore: jwt.NewNumericDate(time.Now().UTC()),
 	}
-	claims := &AccessTokenClaims{
+	claims := AccessTokenClaims{
 		ClientID:             client.ID,
 		Scope:                strings.Join(client.DefaultScopes, " "),
 		SecondFactorVerified: true,
 		Claims:               basicClaims,
 	}
-	accessToken, err := jwt.Signed(a.jwtConfig.Signer).
+	accessToken, err := jwt.Signed(c.Signer).
 		Claims(claims).
 		CompactSerialize()
 	if err != nil {
 		return
 	}
 
-	idToken, err := a.createIDToken(ctx, user.ID, basicClaims)
+	idToken, err := c.createIDToken(ctx, user.ID, basicClaims)
 	if err != nil {
 		return nil, err
 	}
@@ -126,15 +135,15 @@ func (a *App) CreateElevatedUserCredentials(ctx context.Context, user *storage.U
 		IDToken:     idToken,
 	}
 
-	if client.RefreshGrantEnabed() {
-		refreshToken, err := token.GenerateToken(32)
+	if client.EnableRefreshTokenGrant {
+		refreshToken, err := c.Token.Generate(32)
 		if err != nil {
 			return nil, err
 		}
 
-		a.Logger.Debugf("refresh_token: %s", refreshToken)
+		logger.FromContext(ctx).Entry().Debugf("refresh_token: %s", refreshToken)
 
-		_, err = a.Storage.CreateRefreshToken(ctx, user.ID, client.ID, sha256Hex(refreshToken), authnID)
+		_, err = c.Storage.CreateRefreshToken(ctx, user.ID, client.ID, sha256Hex(refreshToken), authnID)
 		if err != nil {
 			return nil, err
 		}
@@ -145,65 +154,51 @@ func (a *App) CreateElevatedUserCredentials(ctx context.Context, user *storage.U
 	return creds, nil
 }
 
-// CreateBasicCredentials creates and signs a JWT for a provided subject and with a provided set of scopes
+// CreateBasic creates and signs a JWT for a provided subject and with a provided set of scopes
 // Current usage is for local development or for service-to-service auth
-func (a *App) CreateBasicCredentials(subject string, scopes []string) (string, error) {
+func (c *Credentials) CreateBasic(subject string, client seba.Client) (string, error) {
 	basicClaims := jwt.Claims{
 		Subject:   subject,
-		Issuer:    a.jwtConfig.Issuer,
-		Audience:  jwt.Audience{seba.APIGatewayClient},
+		Issuer:    c.Issuer,
+		Audience:  client.DefaultAudience,
 		Expiry:    jwt.NewNumericDate(time.Now().UTC().Add(BasicCredentialsTTL)),
 		IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
 		NotBefore: jwt.NewNumericDate(time.Now().UTC()),
 	}
 	claims := AccessTokenClaims{
-		Scope:  strings.Join(scopes, " "),
-		Claims: basicClaims,
+		ClientID: client.ID,
+		Scope:    strings.Join(client.DefaultScopes, " "),
+		Claims:   basicClaims,
 	}
-	accessToken, err := jwt.Signed(a.jwtConfig.Signer).
+	accessToken, err := jwt.Signed(c.Signer).
 		Claims(claims).
 		CompactSerialize()
 
 	return accessToken, err
 }
 
-func (a *App) createIDToken(ctx context.Context, userID string, claims jwt.Claims) (string, error) {
+func (c *Credentials) createIDToken(ctx context.Context, userID string, claims jwt.Claims) (string, error) {
 	idTokenClaims := &IDTokenClaims{
 		Emails: []string{},
 		Claims: claims,
 	}
 
-	g, gctx := errgroup.WithContext(ctx)
-
-	g.Go(func() error {
-		emails, err := a.Storage.ListUserEmails(gctx, userID)
-		if err != nil {
-			return err
-		}
-		for _, em := range emails {
-			idTokenClaims.Emails = append(idTokenClaims.Emails, em.Email)
-		}
-
-		return nil
-	})
-
-	g.Go(func() error {
-		storedCreds, err := a.Storage.ListUserWebauthnCredentials(gctx, userID)
-		if err != nil {
-			return err
-		}
-
-		idTokenClaims.SecondFactorEnrolled = len(storedCreds) > 0
-
-		return nil
-	})
-
-	err := g.Wait()
+	emails, err := c.Storage.ListUserEmails(ctx, userID)
 	if err != nil {
 		return "", err
 	}
 
-	return jwt.Signed(a.jwtConfig.Signer).
+	for _, em := range emails {
+		idTokenClaims.Emails = append(idTokenClaims.Emails, em.Email)
+	}
+
+	return jwt.Signed(c.Signer).
 		Claims(idTokenClaims).
 		CompactSerialize()
+}
+
+func sha256Hex(inputStr string) string {
+	hash := sha256.New()
+	hash.Write([]byte(inputStr))
+	return hex.EncodeToString(hash.Sum(nil))
 }

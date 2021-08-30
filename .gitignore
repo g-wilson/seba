@@ -6,3 +6,7 @@ bin
 node_modules
 __debug_bin
 *.pem
+.local
+*.csv
+.serverless
+clients.json

@@ -1,0 +1,23 @@
+{
+	"type": "object",
+	"additionalProperties": false,
+	"required": [ "email", "state", "pkce_challenge", "client_id" ],
+	"properties": {
+		"email": {
+			"type": "string",
+			"format": "email"
+		},
+		"state": {
+			"type": "string",
+			"minLength": 1
+		},
+		"pkce_challenge": {
+			"type": "string",
+			"minLength": 1
+		},
+		"client_id": {
+			"type": "string",
+			"minLength": 1
+		}
+	}
+}

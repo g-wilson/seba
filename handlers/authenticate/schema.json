@@ -1,0 +1,23 @@
+{
+	"type": "object",
+	"additionalProperties": false,
+	"required": [ "grant_type", "code", "client_id" ],
+	"properties": {
+		"grant_type": {
+			"type": "string",
+			"enum": [ "email_token", "refresh_token", "google_authz_code" ]
+		},
+		"code": {
+			"type": "string",
+			"minLength": 1
+		},
+		"client_id": {
+			"type": "string",
+			"minLength": 1
+		},
+		"pkce_verifier": {
+			"type": "string",
+			"minLength": 1
+		}
+	}
+}

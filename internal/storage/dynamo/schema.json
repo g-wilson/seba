@@ -26,7 +26,7 @@
           "AttributeType": "N"
         },
         {
-          "AttributeName": "lookup_value",
+          "AttributeName": "lookup",
           "AttributeType": "S"
         },
         {
@@ -76,7 +76,7 @@
           "TableData": [],
           "NonKeyAttributes": [
             "created_at",
-            "lookup_value",
+            "lookup",
             "verified_at",
             "revoked_at",
             "client_id",
@@ -94,7 +94,7 @@
           },
           "TableData": [],
           "NonKeyAttributes": [
-            "lookup_value",
+            "lookup",
             "created_at",
             "used_at",
             "client_id",
@@ -127,7 +127,7 @@
           },
           "TableData": [],
           "NonKeyAttributes": [
-            "lookup_value",
+            "lookup",
             "removed_at"
           ],
           "DataAccess": {
@@ -167,7 +167,7 @@
           "IndexName": "valueLookup",
           "KeyAttributes": {
             "PartitionKey": {
-              "AttributeName": "lookup_value",
+              "AttributeName": "lookup",
               "AttributeType": "S"
             },
             "SortKey": {

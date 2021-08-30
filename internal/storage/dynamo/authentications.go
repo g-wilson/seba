@@ -1,4 +1,4 @@
-package storage
+package dynamo
 
 import (
 	"context"
@@ -12,11 +12,11 @@ import (
 	"github.com/guregu/dynamo"
 )
 
-func (s *DynamoStorage) CreateAuthentication(ctx context.Context, hashedCode, email, challenge, clientID string) (ent *Authentication, err error) {
+func (s *DynamoStorage) CreateAuthentication(ctx context.Context, hashedCode, email, challenge, clientID string) (seba.Authentication, error) {
 	timestamp := time.Now().UTC()
 
-	ent = &Authentication{
-		ID:            generateID(TypePrefixAuthentication),
+	ent := Authentication{
+		ID:            s.generateID(seba.TypePrefixAuthentication),
 		CreatedAt:     timestamp,
 		HashedCode:    hashedCode,
 		Email:         email,
@@ -24,22 +24,22 @@ func (s *DynamoStorage) CreateAuthentication(ctx context.Context, hashedCode, em
 		ClientID:      clientID,
 	}
 
-	err = s.db.Table(s.table).
+	err := s.db.Table(s.table).
 		Put(ent).
 		RunWithContext(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("dynamo: CreateAuthentication: %w", err)
+		return seba.Authentication{}, fmt.Errorf("dynamo: CreateAuthentication: %w", err)
 	}
 
-	return
+	return ent.ToApp(), nil
 }
 
-func (s *DynamoStorage) GetAuthenticationByID(ctx context.Context, authenticationID string) (ent *Authentication, err error) {
-	ent = &Authentication{}
+func (s *DynamoStorage) GetAuthenticationByID(ctx context.Context, authenticationID string) (seba.Authentication, error) {
+	ent := Authentication{}
 
-	err = s.db.Table(s.table).
+	err := s.db.Table(s.table).
 		Get("id", authenticationID).
-		Range("relation", dynamo.BeginsWith, TypePrefixAuthentication).
+		Range("relation", dynamo.BeginsWith, seba.TypePrefixAuthentication).
 		OneWithContext(ctx, ent)
 	if err != nil {
 		if err == dynamo.ErrNotFound {
@@ -47,32 +47,34 @@ func (s *DynamoStorage) GetAuthenticationByID(ctx context.Context, authenticatio
 		} else {
 			err = fmt.Errorf("dynamo: GetAuthenticationByID: %w", err)
 		}
+
+		return seba.Authentication{}, err
 	}
 
-	return
+	return ent.ToApp(), nil
 }
 
-func (s *DynamoStorage) GetAuthenticationByHashedCode(ctx context.Context, hashedCode string) (*Authentication, error) {
+func (s *DynamoStorage) GetAuthenticationByHashedCode(ctx context.Context, hashedCode string) (seba.Authentication, error) {
 	ent := &Authentication{}
 
 	err := s.db.Table(s.table).
-		Get("lookup_value", hashedCode).
+		Get("lookup", hashedCode).
 		Index("valueLookup").
-		Range("id", dynamo.BeginsWith, TypePrefixAuthentication).
+		Range("id", dynamo.BeginsWith, seba.TypePrefixAuthentication).
 		OneWithContext(ctx, ent)
 	if err != nil {
 		if err == dynamo.ErrNotFound {
-			return nil, seba.ErrAuthnNotFound
+			return seba.Authentication{}, seba.ErrAuthnNotFound
 		}
 
-		return nil, fmt.Errorf("dynamo: GetAuthenticationByHashedCode: %w", err)
+		return seba.Authentication{}, fmt.Errorf("dynamo: GetAuthenticationByHashedCode: %w", err)
 	}
 
 	if ent.RevokedAt != nil {
-		return nil, seba.ErrAuthnNotFound
+		return seba.Authentication{}, seba.ErrAuthnNotFound
 	}
 
-	return ent, nil
+	return ent.ToApp(), nil
 }
 
 func (s *DynamoStorage) SetAuthenticationVerified(ctx context.Context, authenticationID, email string) (err error) {
@@ -110,13 +112,13 @@ func (s *DynamoStorage) SetAuthenticationRevoked(ctx context.Context, authentica
 	return
 }
 
-func (s *DynamoStorage) ListPendingAuthentications(ctx context.Context, email string) (authns []*Authentication, err error) {
-	authns = []*Authentication{}
+func (s *DynamoStorage) ListPendingAuthentications(ctx context.Context, email string) ([]seba.Authentication, error) {
+	authns := []Authentication{}
 
-	err = s.db.Table(s.table).
+	err := s.db.Table(s.table).
 		Get("relation", email).
 		Index("relationLookup").
-		Range("id", dynamo.BeginsWith, TypePrefixAuthentication).
+		Range("id", dynamo.BeginsWith, seba.TypePrefixAuthentication).
 		Filter("attribute_not_exists(verified_at)").
 		Filter("attribute_not_exists(revoked_at)").
 		AllWithContext(ctx, &authns)
@@ -124,5 +126,10 @@ func (s *DynamoStorage) ListPendingAuthentications(ctx context.Context, email st
 		return nil, fmt.Errorf("dynamo: ListPendingAuthentications: %w", err)
 	}
 
-	return
+	res := []seba.Authentication{}
+	for _, an := range authns {
+		res = append(res, an.ToApp())
+	}
+
+	return res, nil
 }
