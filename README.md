@@ -227,7 +227,7 @@ The identity token provides the `user_id` as the subject in the same way as the 
 
 `sfe`: "Second Factor Enrolled" is `true` if the user has registered at least one hardware 2FA key credential.
 
-### /start_webauthn_registration
+### POST /2021-09-01/start_webauthn_registration
 
 Begins the hardware 2FA registration flow. See [here](https://webauthn.io/) for more info.
 
@@ -248,7 +248,7 @@ Response:
 }
 ```
 
-### /complete_webauthn_registration
+### POST /2021-09-01/complete_webauthn_registration
 
 Registers a hardware 2FA token against a user using the challenge from `/start_webauthn_registration`.
 
@@ -271,7 +271,7 @@ Response:
 }
 ```
 
-### /start_webauthn_verification
+### POST /2021-09-01/start_webauthn_verification
 
 Starts the hardware 2FA verification flow. See [here](https://webauthn.io/) for more info.
 
@@ -292,7 +292,7 @@ Response:
 }
 ```
 
-### /complete_webauthn_verification
+### POST /2021-09-01/complete_webauthn_verification
 
 Elevates an existing session by asserting the hardware 2FA response using the challenge from `/start_webauthn_verification`.
 
