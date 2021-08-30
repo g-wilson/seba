@@ -1,26 +1,16 @@
 package seba
 
 import (
-	"text/template"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	webauthnProtocol "github.com/duo-labs/webauthn/protocol"
 	"github.com/g-wilson/runtime"
 	"github.com/g-wilson/runtime/hand"
-	"golang.org/x/oauth2"
 )
 
 const (
-	// ScopeSebaAdmin identifies an access token with user management permissions
-	ScopeSebaAdmin = "seba:admin"
-
 	GrantTypeEmailToken   = "email_token"
 	GrantTypeRefreshToken = "refresh_token"
 	GrantTypeGoogle       = "google_authz_code"
-
-	APIGatewayClient = "client_awsapigateway"
 )
 
 var (
@@ -56,36 +46,6 @@ var (
 	ErrWebauthnCredentialNotFound = hand.New("webauthn_credential_not_found")
 )
 
-// Config type is used as the argument to the app constructor
-type Config struct {
-	LogLevel  string
-	LogFormat string
-
-	AWSConfig       *aws.Config
-	AWSSession      *session.Session
-	DynamoTableName string
-
-	ActuallySendEmails bool
-	EmailConfig        EmailConfig
-
-	JWTPrivateKey string
-	JWTIssuer     string
-
-	WebauthnDisplayName string
-	WebauthnID          string
-
-	Clients []Client
-}
-
-// EmailConfig type is a group of settings for emails
-type EmailConfig struct {
-	DefaultReplyAddress string
-	DefaultFromAddress  string
-
-	AuthnEmailSubject  string
-	AuthnEmailTemplate *template.Template
-}
-
 // Client represents one of your applications, e.g. your iOS app
 type Client struct {
 	// Set a unique ID for your client. This will be the audience parameter in the access token JWT.
@@ -94,33 +54,29 @@ type Client struct {
 	// DefaultScopes is the list of scope strings to be issued in the access token JWT.
 	DefaultScopes []string
 
-	// EmailAuthenticationURL is the callback URL for magic link style authentication emails. Leave empty to disable email_token grant type.
-	EmailAuthenticationURL string
+	// DefaultAudience is the list of aud strings to be issued in the access token JWT.
+	DefaultAudience []string
 
-	// RefreshTokenTTL is a duration during which a refresh_token grant will be valid. Set to zero to disable refresh_token grant type.
+	// CallbackURL is the callback URL where the user will be redirected after authentication via magic link or google sign in.
+	CallbackURL string
+
+	// EnableEmailGrant will enable magic link functionality.
+	EnableEmailGrant bool
+
+	// EnableGoogleGrant will enable sign in with Google functionality.
+	EnableGoogleGrant bool
+
+	// EnableRefreshTokenGrant will enable session extension via refresh tokens.
+	EnableRefreshTokenGrant bool
+
+	// RefreshTokenTTL is a duration during which a refresh_token grant will be valid.
 	RefreshTokenTTL time.Duration
 
-	// GoogleConfig is used to create the google API client to exchange the authorization code. Leave empty to disable google_authz_code grant type.
-	GoogleConfig *oauth2.Config
+	// EnableWebauthnRegistration will enable the client to register hardware security keys
+	EnableWebauthnRegistration bool
 
-	// WebauthnOrigin is used to validate webauthn requests against a web page. Leave empty to disable webauthn functionality.
-	WebauthnOrigin string
-}
-
-func (c *Client) GoogleGrantEnabled() bool {
-	return c.GoogleConfig != nil
-}
-
-func (c *Client) RefreshGrantEnabed() bool {
-	return c.RefreshTokenTTL > 0*time.Second
-}
-
-func (c *Client) EmailGrantEnabled() bool {
-	return c.EmailAuthenticationURL != ""
-}
-
-func (c *Client) WebauthnEnabled() bool {
-	return c.WebauthnOrigin != ""
+	// EnableWebauthnVerification will enable the client to elevate scopes if a Webauthn challenge is completed
+	EnableWebauthnVerification bool
 }
 
 type Credentials struct {
@@ -129,56 +85,63 @@ type Credentials struct {
 	IDToken      string `json:"id_token"`
 }
 
-type AuthenticateRequest struct {
-	GrantType    string  `json:"grant_type"`
-	Code         string  `json:"code"`
-	ClientID     string  `json:"client_id"`
-	PKCEVerifier *string `json:"pkce_verifier,omitempty"`
+type Authentication struct {
+	ID            string     `json:"id"`
+	Email         string     `json:"email"`
+	HashedCode    string     `json:"hashed_code"`
+	CreatedAt     time.Time  `json:"created_at"`
+	VerifiedAt    *time.Time `json:"verified_at"`
+	RevokedAt     *time.Time `json:"revoked_at"`
+	ClientID      string     `json:"client_id"`
+	PKCEChallenge string     `json:"pkce_challenge"`
 }
 
-type AuthenticateResponse struct {
-	*Credentials
+type RefreshToken struct {
+	ID               string     `json:"id"`
+	UserID           string     `json:"user_id"`
+	HashedToken      string     `json:"hashed_token"`
+	CreatedAt        time.Time  `json:"created_at"`
+	UsedAt           *time.Time `json:"used_at"`
+	ClientID         string     `json:"client_id"`
+	AuthenticationID *string    `json:"authentication_id"`
 }
 
-type SendAuthenticationEmailRequest struct {
-	Email         string `json:"email"`
-	State         string `json:"state"`
-	ClientID      string `json:"client_id"`
-	PKCEChallenge string `json:"pkce_challenge"`
+type User struct {
+	ID        string     `json:"id"`
+	CreatedAt time.Time  `json:"created_at"`
+	RemovedAt *time.Time `json:"removed_at"`
+
+	Relation string `json:"-"`
 }
 
-type StartWebauthnRegistrationRequest struct {
-	RefreshToken string `json:"refresh_token"`
+type Email struct {
+	ID        string     `json:"id"`
+	Email     string     `json:"email"`
+	UserID    string     `json:"user_id"`
+	CreatedAt time.Time  `json:"created_at"`
+	RemovedAt *time.Time `json:"removed_at"`
 }
 
-type StartWebauthnRegistrationResponse struct {
-	ChallengeID        string                                              `json:"challenge_id"`
-	AttestationOptions webauthnProtocol.PublicKeyCredentialCreationOptions `json:"attestation_options"`
+type WebauthnCredential struct {
+	ID              string     `json:"id"`
+	UserID          string     `json:"user_id"`
+	CreatedAt       time.Time  `json:"created_at"`
+	RemovedAt       *time.Time `json:"removed_at"`
+	Name            string     `json:"name"`
+	CredentialID    string     `json:"credential_id"`
+	PublicKey       string     `json:"public_key"`
+	AttestationType string     `json:"attestation_type"`
+	AAGUID          string     `json:"aaguid"`
+	UserVerified    bool       `json:"user_verified"`
+	SignCount       int        `json:"sign_count"`
 }
 
-type CompleteWebauthnRegistrationRequest struct {
-	ChallengeID         string `json:"challenge_id"`
-	AttestationResponse string `json:"attestation_response"`
-}
-
-type CompleteWebauthnRegistrationResponse struct {
-	*Credentials
-}
-
-type StartWebauthnVerificationRequest struct {
-	RefreshToken string `json:"refresh_token"`
-}
-
-type StartWebauthnVerificationResponse struct {
-	ChallengeID      string                                             `json:"challenge_id"`
-	AssertionOptions webauthnProtocol.PublicKeyCredentialRequestOptions `json:"assertion_options"`
-}
-
-type CompleteWebauthnVerificationRequest struct {
-	ChallengeID       string `json:"challenge_id"`
-	AssertionResponse string `json:"assertion_response"`
-}
-
-type CompleteWebauthnVerificationResponse struct {
-	*Credentials
+type WebauthnChallenge struct {
+	ID            string    `json:"id"`
+	UserID        string    `json:"user_id"`
+	SessionID     string    `json:"session_id"`
+	CreatedAt     time.Time `json:"created_at"`
+	ChallengeType string    `json:"challenge_type"`
+	Challenge     string    `json:"challenge"`
+	CredentialIDs []string  `json:"credential_ids"`
 }

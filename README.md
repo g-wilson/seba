@@ -2,138 +2,28 @@
 
 > Serverless Email-based Authentication
 
-Add secure passwordless authentication to your application with a serverless philosophy.
+A Serverless framework application providing secure passwordless authentication.
 
--------
+## TODO
 
-This is primarily an exercise for me to build something real with an entirely serverless philosophy, expand my working knowledge of DynamoDB, Webauthn, and maybe a starter for any side projects.
+- [ ] revocation endpoint
+- [ ] introspection endpoint
+- [ ] grant type: client credentials
+- [ ] grant type: apple sign in
+- [ ] storage: faunadb
 
--------
+SEBA is an opinionated service designed specifically for common mobile or JS web applications. The goal of SEBA is to provide a simple, sensible way to authenticate a user by using an email account as an identity. It is not concerned with granting scoped permissions to a variety of third-party clients.
 
-SEBA is an opinionated service designed specifically for common mobile or JS web applications. The goal of SEBA is to provide a simple, sensible way to authenticate a user by using an email account as an identity. It is not concerned with granting scoped permissions to a variety of clients. It provides  hardware 2FA on top using Webauthn.
+SEBA issues JWT access tokens for your application. It is specifically designed to be run on AWS Lambda using an HTTP API Gateway for invocation, so that you can take advantage of the provided JWT Authorizer. It also supports hardware second-factor attestation using Webauthn.
 
-Email identity can be verified in 3 ways:
+Email identity can currently be verified in 2 ways:
 
 - Sending a token in an email to an email address (i.e. "magic link")
 - Google sign in authorization code
-- Apple ID sign in authorization code (coming soon)
 
-SEBA issues JWT access tokens for your application. It is specifically designed to be run on AWS Lambda using an HTTP API Gateway for invocation, so that you can take advantage of the provided JWT Authorizer.
+### oAuth 2.0
 
-It uses a single DynamoDB table to minimise provisioning steps, and allow you to use a truly serverless pay-as-you-use pricing model.
-
-WebAuthn is supported for second-factor authentication using hardware security tokens.
-
-## Usage in your application
-
-### Infrastructure overview
-
-```
-*-- example.com/.well-known/openid-configuration -------------> [ oauth issuer details ]
-
-*-- example.com/.well-known/jwks.json ------------------------> [ jwt public keys ]
-
-*-- example.com/api -[ HTTP API Gateway ]- /auth/{method+} ---> [ SEBA Lambda ]-[ DynamoDB ]
-
-*-- example.com/api -[ HTTP API Gateway ]- /your-api-here ----> [ JWT Authorizer ] --> [ Your Lambda ]
-
-```
-
-SEBA is hosted as a Lambda function and uses API Gateway's wildcard route matching (`{method+}`) to provide several endpoints with a simple setup.
-
-The `openid-configuration` and `jwks.json` routes can return static files (examples included in this repo) which are necessary for configuring the JWT Authorizer in the HTTP API Gateway. The key file can be used to rotate the key used for access token signing.
-
-There is a second SEBA application which can be hosted as an additional Lambda, which provides some protected endpoints for basic user management. It must be behind a JWT Authorizer in the API Gateway. It is under development so not yet documented.
-
-### Creating the Lambda function
-
-It is assume you have your own packaging and deployment pipeline for Lambda, so SEBA is provided as a library for use in your own code.
-
-You will need to provision SEBA with your JWT private key, and a list of clients.
-
-Clients provide a callback URL which is used to generate the "magic link" SEBA sends to the user's email address. Here you can configure the TTL of access tokens and refresh tokens, and you can set the default `scope` claim.
-
-```go
-package main
-
-import (
-	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/g-wilson/runtime"
-	"github.com/g-wilson/seba"
-	sebaApp "github.com/g-wilson/seba/app"
-	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
-)
-
-func main() {
-	awsConfig := aws.NewConfig().WithRegion(os.Getenv("AWS_REGION"))
-	awsSession := session.Must(session.NewSession())
-
-	authnEmailTemplate, err := template.New("authn").Parse(`Sign in by clicking this link: {{.LinkURL}}`)
-	if err != nil {
-		return nil, fmt.Errorf("error compiling template: %w", err)
-	}
-
-	clientConfig := seba.Client{
-		// Set a unique ID for your client. This will be the audience parameter in the access token JWT.
-		ID:                     "your-client-id",
-
-		// DefaultScopes is the list of scope strings to be issued in the access token JWT.
-		DefaultScopes:          []string{"api"},
-
-		// RefreshTokenTTL is a duration during which a refresh_token grant will be valid. Set to zero to disable refresh_token grant type.
-		RefreshTokenTTL:        90 * 24 * time.Hour,
-
-		// EmailAuthenticationURL is the callback URL for magic link style authentication emails. Leave empty to disable email_token grant type.
-		EmailAuthenticationURL: "https://localhost:8080/auth/email-callback",
-
-		// GoogleConfig is used to create the google API client to exchange the authorization code
-		GoogleConfig: &oauth2.Config{
-			ClientID:     os.Getenv("GOOGLE_OAUTH_CLIENT_ID"),
-			ClientSecret: os.Getenv("GOOGLE_OAUTH_SECRET"),
-			RedirectURL:  "https://localhost:8080/auth/google-callback",
-		},
-
-		// optional field required for hardware 2FA
-		WebauthnOrigin: "https://localhost:8080",
-	}
-
-	sebaInstance, err := sebaApp.New(seba.Config{
-		LogLevel:  os.Getenv("LOG_LEVEL"),
-		LogFormat: os.Getenv("LOG_FORMAT"),
-
-		AWSConfig:       awsConfig,
-		AWSSession:      awsSession,
-		DynamoTableName: os.Getenv("AUTH_DYNAMO_TABLE_NAME"),
-
-		ActuallySendEmails: (os.Getenv("ACTUALLY_SEND_EMAILS") == "true"),
-		EmailConfig: seba.EmailConfig{
-			DefaultFromAddress:  "auth@example.com",
-			DefaultReplyAddress: "security@example.com",
-			AuthnEmailSubject:   "Sign in link",
-			AuthnEmailTemplate:  authnEmailTemplate,
-		},
-
-		JWTPrivateKey: os.Getenv("AUTH_PRIVATE_KEY"),
-		JWTIssuer:     os.Getenv("AUTH_ISSUER"),
-
-		Clients: []seba.Client{clientConfig},
-
-		// optional fields required for hardware 2FA
-		WebauthnDisplayName: "0xf09f8dba",
-		WebauthnID:          "localhost",
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	lambda.Start(runtime.WrapRPCHTTPGateway(sebaInstance.RPC()))
-}
-```
-
-## Design decisions
-
-oAuth 2 is followed in the API design because of its ubiquity - it is a mature protocol and therefore a solid foundation to implement token based security for modern apps. It follows similar conventions to oAuth 2, but with some key differences:
+SEBA is designed to provide simple authentication - not authorization. oAuth 2 is followed in the API design because of its relative ubiquity in industry. It is a mature protocol and therefore a solid foundation to implement token based security for modern apps. The API follows similar conventions to oAuth 2, but with some key differences:
 
 - No Authorization Server or "single-sign-on" style website responsible for authentication and managing the granting of permissions. SEBA provides identity authentication using email verification. Effectively SEBA provides the Token Endpoint, and delegates the Authorization Server to 3rd parties (email services).
 
@@ -143,9 +33,73 @@ oAuth 2 is followed in the API design because of its ubiquity - it is a mature p
 
 - Scope parameter is not used on the token endpoint. This feature is specific to scenarios where the end-user chooses what permissions they want to grant to the clients. Since SEBA is not concerned with authorization at all, it has been left... out of scope.
 
+## Persistence
+
+There is a Storage interface so that multiple storage backends can be developed.
+
+At the moment there is one provider, DynamoDB. It uses a single-table design to minimise provisioning steps, and allow you to use a truly serverless pay-as-you-use pricing model.
+
 ## API
 
-### /send_authentication_email
+### GET /.well-known/openid-configuration
+
+Necessary for use with AWS API Gateway JWT Authorizer, this is a simple endpoint which returns the configuration params necessary for API Gateway to validate the access tokens.
+
+Response:
+
+```
+{
+	"issuer": "https://identity.example.com",
+	"jwks_uri": "https://identity.example.com/.well-known/jwks.json",
+	"response_types_supported": [
+		"code"
+	],
+	"subject_types_supported": [
+		"public"
+	],
+	"id_token_signing_alg_values_supported": [
+		"RS256"
+	],
+	"token_endpoint": "https://identity.example.com/2021-09-01/authenticate",
+	"response_modes_supported": [
+		"query"
+	],
+	"grant_types_supported": [
+		"email_token",
+		"refresh_token",
+		"google_authz_code"
+	],
+	"code_challenge_methods_supported": [
+		"S256"
+	]
+}
+
+```
+
+### GET /.well-known/jwks.json
+
+Necessary for use with AWS API Gateway JWT Authorizer, this is a simple endpoint which returns a set of JSON Web Key (JWK) objects against which the JWT access tokens will be validated by API Gateway.
+
+At the time of writing, only RS256 keys are supported by API Gateway JWT Authorizer.
+
+Response:
+
+```
+{
+	"keys": [
+		{
+			"kty": "RSA",
+			"e": "AQAB",
+			"use": "sig",
+			"kid": "sig-1630339843",
+			"alg": "RS256",
+			"n": "43RiU_ORhSnbDiXPjriqU19F0PMm1gHilDmJ4S2XTp572A1Wx1AuoTh0JFmYmwldCYGqJ1Fpa-52Fd_6--9eJ6AiDJyz10TlIooNlXZOAoUvLhrX1UOJ-JZJaXFSrCsDXJC1w1Cyz8snJ1XHrJg8B5qNAHi-T1-ypLZjDwtCTwKvqrID-jB9lUx0Bv_ge2Nom3xvbPy6XvsiF0SJ_RvA9w21KU73NbYkKB3UUwGac0-y6Eq8lTaOKxASEdEqeVSJJswVHzP1y-G1WHmQOCYM9MbCNJrZtQOPvjGTY6Qykg3Q9xJTDqTndCCzUuaSBbHM5Bsukr0yHZ6GuJWgbx3zHw"
+		}
+	]
+}
+```
+
+### POST /2021-09-01/send_authentication_email
 
 Sends an email to the provided address with a callback URL to your client. The URL will have query parameters which you can then use on the authentication endpoint.
 
@@ -168,7 +122,9 @@ Response: 204
 - The user must follow the URL to your application (e.g. a website or mobile app)
 - The client must check that the state parameter of the callback URL matches the persisted one
 
-### /authenticate
+### POST /2021-09-01/authenticate
+
+This the equivalent oAuth 2 "token endpoint".
 
 #### email_token grant
 
@@ -227,15 +183,15 @@ If you use Go, you can use the included `idcontext` package which provides two u
 ```
 {
   "aud": [
-    "client_awsapigateway"
+    "https://api.example.com"
   ],
-  "cid": "client_52842f21-d9fd-4201-b198-c5f0585cb3be",
+  "cid": "some_client_id",
   "exp": 1588957867,
   "iat": 1588954267,
-  "iss": "https://example.com",
+  "iss": "https://identity.example.com",
   "nbf": 1588954267,
   "scope": "api admin",
-  "sub": "user_a71ce329-e1d9-4993-8525-f26bbecc448c",
+  "sub": "some_user_id",
   "sfv": false
 }
 ```
@@ -253,16 +209,16 @@ When `sfv` is `true` this means the session can be considered elevated after a h
 ```
 {
   "aud": [
-    "client_awsapigateway"
+    "https://api.example.com"
   ],
   "emails": [
     "user@example.com"
   ],
   "exp": 1588957867,
   "iat": 1588954267,
-  "iss": "https://example.com",
+  "iss": "https://identity.example.com",
   "nbf": 1588954267,
-  "sub": "user_a71ce329-e1d9-4993-8525-f26bbecc448c",
+  "sub": "some_user_id",
   "sfe": false
 }
 ```

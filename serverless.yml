@@ -1,0 +1,131 @@
+service: seba
+
+frameworkVersion: '2'
+useDotenv: true
+variablesResolutionMode: 20210326
+
+provider:
+  name: aws
+  runtime: go1.x
+  stage: ${opt:stage,'dev'}
+  lambdaHashingVersion: 20201221
+  region: eu-west-1
+  httpApi:
+    cors: true
+    disableDefaultEndpoint: true
+    shouldStartNameWithService: true
+  environment:
+      LOG_FORMAT: json
+      LOG_LEVEL: info
+
+package:
+  patterns:
+    - '!./**'
+    - ./bin/**
+
+functions:
+  openidconfig:
+    handler: bin/openidconfig
+    events:
+      - httpApi:
+          path: /.well-known/openid-configuration
+          method: get
+  openidkeys:
+    handler: bin/openidkeys
+    events:
+      - httpApi:
+          path: /.well-known/jwks.json
+          method: get
+  authenticate:
+    handler: bin/authenticate
+    environment:
+      AUTH_DYNAMO_TABLE_NAME: ${self:custom.AUTH_DYNAMO_TABLE_NAME.${self:provider.stage}}
+      AUTH_ISSUER: ${self:custom.AUTH_ISSUER.${self:provider.stage}}
+      AUTH_PRIVATE_KEY: ${self:custom.AUTH_PRIVATE_KEY.${self:provider.stage}}
+      GOOGLE_OAUTH_CLIENT_ID: ${self:custom.GOOGLE_OAUTH_CLIENT_ID.${self:provider.stage}}
+      GOOGLE_OAUTH_SECRET: ${self:custom.GOOGLE_OAUTH_SECRET.${self:provider.stage}}
+    events:
+      - httpApi:
+          path: /2021-09-01/authenticate
+          method: post
+  sendemail:
+    handler: bin/sendemail
+    environment:
+      AUTH_DYNAMO_TABLE_NAME: ${self:custom.AUTH_DYNAMO_TABLE_NAME.${self:provider.stage}}
+      ACTUALLY_SEND_EMAILS: ${self:custom.ACTUALLY_SEND_EMAILS.${self:provider.stage}}
+      EMAIL_FROM_ADDRESS: ${self:custom.EMAIL_FROM_ADDRESS.${self:provider.stage}}
+      EMAIL_REPLY_ADDRESS: ${self:custom.EMAIL_REPLY_ADDRESS.${self:provider.stage}}
+    events:
+      - httpApi:
+          path: /2021-09-01/send_authentication_email
+          method: post
+  webauthnregistrationstart:
+    handler: bin/webauthnregistrationstart
+    environment:
+      AUTH_DYNAMO_TABLE_NAME: ${self:custom.AUTH_DYNAMO_TABLE_NAME.${self:provider.stage}}
+      AUTH_ISSUER: ${self:custom.AUTH_ISSUER.${self:provider.stage}}
+      WEBAUTHN_DISPLAY_NAME: ${self:custom.WEBAUTHN_DISPLAY_NAME.${self:provider.stage}}
+      WEBAUTHN_ORIGIN: ${self:custom.WEBAUTHN_ORIGIN.${self:provider.stage}}
+    events:
+      - httpApi:
+          path: /2021-09-01/start_webauthn_registration
+          method: post
+  webauthnregistrationcomplete:
+    handler: bin/webauthnregistrationcomplete
+    environment:
+      AUTH_DYNAMO_TABLE_NAME: ${self:custom.AUTH_DYNAMO_TABLE_NAME.${self:provider.stage}}
+      AUTH_ISSUER: ${self:custom.AUTH_ISSUER.${self:provider.stage}}
+      WEBAUTHN_DISPLAY_NAME: ${self:custom.WEBAUTHN_DISPLAY_NAME.${self:provider.stage}}
+      WEBAUTHN_ORIGIN: ${self:custom.WEBAUTHN_ORIGIN.${self:provider.stage}}
+    events:
+      - httpApi:
+          path: /2021-09-01/complete_webauthn_registration
+          method: post
+  webauthnverificationstart:
+    handler: bin/webauthnverificationstart
+    environment:
+      AUTH_DYNAMO_TABLE_NAME: ${self:custom.AUTH_DYNAMO_TABLE_NAME.${self:provider.stage}}
+      AUTH_ISSUER: ${self:custom.AUTH_ISSUER.${self:provider.stage}}
+      WEBAUTHN_DISPLAY_NAME: ${self:custom.WEBAUTHN_DISPLAY_NAME.${self:provider.stage}}
+      WEBAUTHN_ORIGIN: ${self:custom.WEBAUTHN_ORIGIN.${self:provider.stage}}
+    events:
+      - httpApi:
+          path: /2021-09-01/start_webauthn_verification
+          method: post
+  webauthnverificationcomplete:
+    handler: bin/webauthnverificationcomplete
+    environment:
+      AUTH_DYNAMO_TABLE_NAME: ${self:custom.AUTH_DYNAMO_TABLE_NAME.${self:provider.stage}}
+      AUTH_ISSUER: ${self:custom.AUTH_ISSUER.${self:provider.stage}}
+      WEBAUTHN_DISPLAY_NAME: ${self:custom.WEBAUTHN_DISPLAY_NAME.${self:provider.stage}}
+      WEBAUTHN_ORIGIN: ${self:custom.WEBAUTHN_ORIGIN.${self:provider.stage}}
+    events:
+      - httpApi:
+          path: /2021-09-01/complete_webauthn_verification
+          method: post
+
+custom:
+  stages:
+    - dev
+  AUTH_ISSUER:
+    dev: ${env:AUTH_ISSUER}
+  AUTH_DYNAMO_TABLE_NAME:
+    dev: ${env:AUTH_DYNAMO_TABLE_NAME}
+  AUTH_PRIVATE_KEY:
+    dev: ${env:AUTH_PRIVATE_KEY}
+    # prod: ${ssm:/seba/prod/AUTH_PRIVATE_KEY}
+  ACTUALLY_SEND_EMAILS:
+    dev: false
+  EMAIL_FROM_ADDRESS:
+    dev: ${env:EMAIL_FROM_ADDRESS}
+  EMAIL_REPLY_ADDRESS:
+    dev: ${env:EMAIL_REPLY_ADDRESS}
+  GOOGLE_OAUTH_CLIENT_ID:
+    dev: ${env:GOOGLE_OAUTH_CLIENT_ID}
+  GOOGLE_OAUTH_SECRET:
+    dev: ${env:GOOGLE_OAUTH_SECRET}
+    # prod: ${ssm:/seba/prod/GOOGLE_OAUTH_SECRET}
+  WEBAUTHN_DISPLAY_NAME:
+    dev: ${env:WEBAUTHN_DISPLAY_NAME}
+  WEBAUTHN_ORIGIN:
+    dev: ${env:WEBAUTHN_ORIGIN}
