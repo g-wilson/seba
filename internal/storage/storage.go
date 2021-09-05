@@ -2,27 +2,9 @@ package storage
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/g-wilson/seba"
-
-	"github.com/segmentio/ksuid"
 )
-
-type TypePrefix string
-
-const (
-	TypePrefixAuthentication     = TypePrefix("authn")
-	TypePrefixRefreshToken       = TypePrefix("reftok")
-	TypePrefixUser               = TypePrefix("user")
-	TypePrefixEmail              = TypePrefix("email")
-	TypePrefixWebauthnChallenge  = TypePrefix("wanchal")
-	TypePrefixWebauthnCredential = TypePrefix("wancred")
-)
-
-func GenerateID(t TypePrefix) string {
-	return fmt.Sprintf("%s_%s", t, ksuid.New().String())
-}
 
 type Storage interface {
 	CreateAuthentication(ctx context.Context, hashedCode, email, challenge, clientID string) (seba.Authentication, error)

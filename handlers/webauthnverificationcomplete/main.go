@@ -6,7 +6,6 @@ import (
 
 	"github.com/g-wilson/seba"
 	"github.com/g-wilson/seba/internal/credentials"
-	"github.com/g-wilson/seba/internal/storage"
 	dynamo "github.com/g-wilson/seba/internal/storage/dynamo"
 	"github.com/g-wilson/seba/internal/token"
 	"github.com/g-wilson/seba/internal/webauthn"
@@ -29,10 +28,9 @@ func main() {
 	awsSession := session.Must(session.NewSession())
 
 	dynamoStorage := dynamo.New(dynamo.Params{
-		IDGenerator: storage.GenerateID,
-		AWSSession:  awsSession,
-		AWSConfig:   awsConfig,
-		TableName:   os.Getenv("AUTH_DYNAMO_TABLE_NAME"),
+		AWSSession: awsSession,
+		AWSConfig:  awsConfig,
+		TableName:  os.Getenv("AUTH_DYNAMO_TABLE_NAME"),
 	})
 
 	webauthn, err := webauthn.New(webauthn.Params{

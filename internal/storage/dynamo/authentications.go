@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/g-wilson/seba"
-	"github.com/g-wilson/seba/internal/storage"
 
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/guregu/dynamo"
@@ -17,7 +16,7 @@ func (s *DynamoStorage) CreateAuthentication(ctx context.Context, hashedCode, em
 	timestamp := time.Now().UTC()
 
 	ent := Authentication{
-		ID:            s.generateID(storage.TypePrefixAuthentication),
+		ID:            generateID(TypePrefixAuthentication),
 		CreatedAt:     timestamp,
 		HashedCode:    hashedCode,
 		Email:         email,
@@ -40,7 +39,7 @@ func (s *DynamoStorage) GetAuthenticationByID(ctx context.Context, authenticatio
 
 	err := s.db.Table(s.table).
 		Get("id", authenticationID).
-		Range("relation", dynamo.BeginsWith, storage.TypePrefixAuthentication).
+		Range("relation", dynamo.BeginsWith, TypePrefixAuthentication).
 		OneWithContext(ctx, ent)
 	if err != nil {
 		if err == dynamo.ErrNotFound {
@@ -61,7 +60,7 @@ func (s *DynamoStorage) GetAuthenticationByHashedCode(ctx context.Context, hashe
 	err := s.db.Table(s.table).
 		Get("lookup", hashedCode).
 		Index("valueLookup").
-		Range("id", dynamo.BeginsWith, storage.TypePrefixAuthentication).
+		Range("id", dynamo.BeginsWith, TypePrefixAuthentication).
 		OneWithContext(ctx, ent)
 	if err != nil {
 		if err == dynamo.ErrNotFound {
@@ -119,7 +118,7 @@ func (s *DynamoStorage) ListPendingAuthentications(ctx context.Context, email st
 	err := s.db.Table(s.table).
 		Get("relation", email).
 		Index("relationLookup").
-		Range("id", dynamo.BeginsWith, storage.TypePrefixAuthentication).
+		Range("id", dynamo.BeginsWith, TypePrefixAuthentication).
 		Filter("attribute_not_exists(verified_at)").
 		Filter("attribute_not_exists(revoked_at)").
 		AllWithContext(ctx, &authns)

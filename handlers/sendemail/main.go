@@ -9,7 +9,6 @@ import (
 
 	"github.com/g-wilson/seba"
 	emailer "github.com/g-wilson/seba/internal/emailer/ses"
-	"github.com/g-wilson/seba/internal/storage"
 	dynamo "github.com/g-wilson/seba/internal/storage/dynamo"
 	"github.com/g-wilson/seba/internal/token"
 
@@ -50,10 +49,9 @@ func main() {
 	})
 
 	dynamoStorage := dynamo.New(dynamo.Params{
-		IDGenerator: storage.GenerateID,
-		AWSSession:  awsSession,
-		AWSConfig:   awsConfig,
-		TableName:   os.Getenv("AUTH_DYNAMO_TABLE_NAME"),
+		AWSSession: awsSession,
+		AWSConfig:  awsConfig,
+		TableName:  os.Getenv("AUTH_DYNAMO_TABLE_NAME"),
 	})
 
 	handler := &Handler{

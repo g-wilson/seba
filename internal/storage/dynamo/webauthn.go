@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/g-wilson/seba"
-	"github.com/g-wilson/seba/internal/storage"
 
 	"github.com/guregu/dynamo"
 )
@@ -15,7 +14,7 @@ func (s *DynamoStorage) CreateWebauthnRegistrationChallenge(ctx context.Context,
 	timestamp := time.Now().UTC()
 
 	ent := WebauthnChallenge{
-		ID:            s.generateID(storage.TypePrefixWebauthnChallenge),
+		ID:            generateID(TypePrefixWebauthnChallenge),
 		CreatedAt:     timestamp,
 		UserID:        userID,
 		SessionID:     sessionID,
@@ -37,7 +36,7 @@ func (s *DynamoStorage) CreateWebauthnVerificationChallenge(ctx context.Context,
 	timestamp := time.Now().UTC()
 
 	ent := WebauthnChallenge{
-		ID:            s.generateID(storage.TypePrefixWebauthnChallenge),
+		ID:            generateID(TypePrefixWebauthnChallenge),
 		CreatedAt:     timestamp,
 		UserID:        userID,
 		SessionID:     sessionID,
@@ -61,7 +60,7 @@ func (s *DynamoStorage) GetWebauthnChallenge(ctx context.Context, challengeID st
 
 	err := s.db.Table(s.table).
 		Get("id", challengeID).
-		Range("relation", dynamo.BeginsWith, storage.TypePrefixRefreshToken).
+		Range("relation", dynamo.BeginsWith, TypePrefixRefreshToken).
 		OneWithContext(ctx, ent)
 	if err != nil {
 		if err == dynamo.ErrNotFound {
@@ -82,7 +81,7 @@ func (s *DynamoStorage) ListUserWebauthnCredentials(ctx context.Context, userID 
 	err = s.db.Table(s.table).
 		Get("relation", userID).
 		Index("relationLookup").
-		Range("id", dynamo.BeginsWith, storage.TypePrefixWebauthnCredential).
+		Range("id", dynamo.BeginsWith, TypePrefixWebauthnCredential).
 		AllWithContext(ctx, &allcreds)
 	if err != nil {
 		err = fmt.Errorf("dynamo: ListUserWebauthnCredentials: %w", err)
@@ -105,7 +104,7 @@ func (s *DynamoStorage) GetWebauthnCredentialByCredentialID(ctx context.Context,
 	err := s.db.Table(s.table).
 		Get("lookup", credentialID).
 		Index("valueLookup").
-		Range("id", dynamo.BeginsWith, storage.TypePrefixWebauthnCredential).
+		Range("id", dynamo.BeginsWith, TypePrefixWebauthnCredential).
 		OneWithContext(ctx, ent)
 	if err != nil {
 		if err == dynamo.ErrNotFound {
@@ -124,7 +123,7 @@ func (s *DynamoStorage) CreateWebAuthnCredential(ctx context.Context, userID, na
 	timestamp := time.Now().UTC()
 
 	ent := WebauthnCredential{
-		ID:              s.generateID(storage.TypePrefixWebauthnCredential),
+		ID:              generateID(TypePrefixWebauthnCredential),
 		UserID:          userID,
 		CreatedAt:       timestamp,
 		Name:            name,

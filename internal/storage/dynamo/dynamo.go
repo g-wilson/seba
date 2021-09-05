@@ -1,38 +1,51 @@
 package dynamo
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/g-wilson/seba"
-	"github.com/g-wilson/seba/internal/storage"
+	"github.com/segmentio/ksuid"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/guregu/dynamo"
 )
 
+type TypePrefix string
+
+const (
+	TypePrefixAuthentication     = TypePrefix("authn")
+	TypePrefixRefreshToken       = TypePrefix("reftok")
+	TypePrefixUser               = TypePrefix("user")
+	TypePrefixEmail              = TypePrefix("email")
+	TypePrefixWebauthnChallenge  = TypePrefix("wanchal")
+	TypePrefixWebauthnCredential = TypePrefix("wancred")
+)
+
 type Params struct {
-	IDGenerator func(t storage.TypePrefix) string
-	AWSSession  *session.Session
-	AWSConfig   *aws.Config
-	TableName   string
+	AWSSession *session.Session
+	AWSConfig  *aws.Config
+	TableName  string
 }
 
 // DynamoStorage meets the seba.Storage interface
 type DynamoStorage struct {
-	generateID func(t storage.TypePrefix) string
-	db         *dynamo.DB
-	table      string
+	db    *dynamo.DB
+	table string
 }
 
 func New(cfg Params) *DynamoStorage {
 	db := dynamo.New(cfg.AWSSession, cfg.AWSConfig)
 
 	return &DynamoStorage{
-		db:         db,
-		table:      cfg.TableName,
-		generateID: cfg.IDGenerator,
+		db:    db,
+		table: cfg.TableName,
 	}
+}
+
+func generateID(t TypePrefix) string {
+	return fmt.Sprintf("%s_%s", t, ksuid.New().String())
 }
 
 type Authentication struct {
