@@ -10,7 +10,7 @@ import (
 const (
 	GrantTypeEmailToken   = "email_token"
 	GrantTypeRefreshToken = "refresh_token"
-	GrantTypeGoogle       = "google_authz_code"
+	GrantTypeGoogle       = "google_id_token"
 )
 
 var (
@@ -38,6 +38,9 @@ var (
 	ErrRefreshTokenNotFound = hand.New("refresh_token_not_found")
 	ErrRefreshTokenUsed     = hand.New("refresh_token_already_used")
 	ErrRefreshTokenExpired  = hand.New("refresh_token_expired")
+
+	ErrGoogleVerifyFailed    = hand.New("google_verify_failed")
+	ErrGoogleAlreadyVerified = hand.New("google_already_verified")
 
 	ErrUserNotFound      = hand.New("user_not_found")
 	ErrUserAlreadyExists = hand.New("user_already_exists")

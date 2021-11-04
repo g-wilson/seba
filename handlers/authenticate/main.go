@@ -6,6 +6,7 @@ import (
 
 	"github.com/g-wilson/seba"
 	"github.com/g-wilson/seba/internal/credentials"
+	"github.com/g-wilson/seba/internal/google"
 	"github.com/g-wilson/seba/internal/storage/dynamo"
 	"github.com/g-wilson/seba/internal/token"
 
@@ -32,11 +33,6 @@ func main() {
 		TableName:  os.Getenv("AUTH_DYNAMO_TABLE_NAME"),
 	})
 
-	googleParams := GoogleOauthConfig{
-		ClientID:     os.Getenv("GOOGLE_OAUTH_CLIENT_ID"),
-		ClientSecret: os.Getenv("GOOGLE_OAUTH_SECRET"),
-	}
-
 	creds := &credentials.Credentials{
 		Issuer:  os.Getenv("AUTH_ISSUER"),
 		Signer:  credentials.MustCreateSigner(os.Getenv("AUTH_PRIVATE_KEY")),
@@ -44,12 +40,16 @@ func main() {
 		Token:   token.New(),
 	}
 
+	googleVerifier := google.NewVerifier(google.Config{
+		ClientID: os.Getenv("GOOGLE_CLIENT_ID"),
+	})
+
 	handler := &Handler{
-		Token:        token.New(),
-		Storage:      dynamoStorage,
-		Credentials:  creds,
-		Clients:      seba.ClientsByID,
-		GoogleParams: googleParams,
+		Token:          token.New(),
+		Storage:        dynamoStorage,
+		Credentials:    creds,
+		Clients:        seba.ClientsByID,
+		GoogleVerifier: googleVerifier,
 	}
 
 	rpc := rpcmethod.New(rpcmethod.Params{

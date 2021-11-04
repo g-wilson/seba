@@ -6,30 +6,24 @@ import (
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/hex"
-	"errors"
 	"time"
 
 	"github.com/g-wilson/seba"
 	"github.com/g-wilson/seba/internal/credentials"
+	"github.com/g-wilson/seba/internal/google"
 	"github.com/g-wilson/seba/internal/storage"
 	"github.com/g-wilson/seba/internal/token"
 
 	"github.com/g-wilson/runtime/hand"
-	"golang.org/x/oauth2"
-	"gopkg.in/square/go-jose.v2/jwt"
+	"github.com/g-wilson/runtime/logger"
 )
 
 type Handler struct {
-	Token        token.Token
-	Storage      storage.Storage
-	Credentials  credentials.CredentialProvider
-	Clients      map[string]seba.Client
-	GoogleParams GoogleOauthConfig
-}
-
-type GoogleOauthConfig struct {
-	ClientID     string
-	ClientSecret string
+	Token          token.Token
+	Storage        storage.Storage
+	Credentials    credentials.CredentialProvider
+	Clients        map[string]seba.Client
+	GoogleVerifier google.Verifier
 }
 
 type Request struct {
@@ -169,42 +163,35 @@ func (h *Handler) useRefreshToken(ctx context.Context, token string, client seba
 }
 
 func (h *Handler) useGoogleToken(ctx context.Context, code string, client seba.Client) (*seba.Credentials, error) {
-	if !client.EnableEmailGrant {
+	if !client.EnableGoogleGrant {
 		return nil, seba.ErrNotSupportedByClient
 	}
 
-	googleConfig := &oauth2.Config{
-		ClientID:     h.GoogleParams.ClientID,
-		ClientSecret: h.GoogleParams.ClientSecret,
-		RedirectURL:  client.CallbackURL,
+	cl, err := h.GoogleVerifier.Verify(ctx, code)
+	if err != nil {
+		logger.FromContext(ctx).Update(
+			logger.FromContext(ctx).Entry().WithField("google_verifier_error", err),
+		)
+
+		return nil, seba.ErrGoogleVerifyFailed.WithMessage("Google ID token invalid")
 	}
 
-	gResp, err := googleConfig.Exchange(ctx, code, oauth2.AccessTypeOffline)
-	if err != nil {
-		return nil, err
+	if cl.Nonce == "" {
+		return nil, seba.ErrGoogleVerifyFailed.WithMessage("Nonce must be available")
 	}
 
-	idtoken, ok := gResp.Extra("id_token").(string)
-	if !ok {
-		return nil, errors.New("google auth failed: id_token not found in token response")
+	if cl.Email == "" {
+		return nil, seba.ErrGoogleVerifyFailed.WithMessage("Email address must be available")
 	}
 
-	tok, err := jwt.ParseSigned(idtoken)
+	if !cl.EmailVerified {
+		return nil, seba.ErrGoogleVerifyFailed.WithMessage("Email address must be verified")
+	}
+
+	// checks if nonce has already been used, errors with seba.ErrGoogleAlreadyVerified
+	err = h.Storage.CreateGoogleVerification(ctx, cl.Nonce, cl.Issuer, cl.Audience[0], cl.Subject)
 	if err != nil {
 		return nil, err
-	}
-	cl := struct {
-		Email      string `json:"email"`
-		IsVerified bool   `json:"email_verified"`
-	}{}
-	if err := tok.UnsafeClaimsWithoutVerification(&cl); err != nil {
-		return nil, err
-	}
-	if err != nil {
-		return nil, err
-	}
-	if !cl.IsVerified {
-		return nil, seba.ErrEmailNotVerified.WithMessage("Email address must be verified before using Google")
 	}
 
 	user, err := h.getOrCreateUserByEmail(ctx, cl.Email)

@@ -5,7 +5,7 @@
 	"properties": {
 		"grant_type": {
 			"type": "string",
-			"enum": [ "email_token", "refresh_token", "google_authz_code" ]
+			"enum": [ "email_token", "refresh_token", "google_id_token" ]
 		},
 		"code": {
 			"type": "string",

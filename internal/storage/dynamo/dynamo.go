@@ -21,6 +21,7 @@ const (
 	TypePrefixEmail              = TypePrefix("email")
 	TypePrefixWebauthnChallenge  = TypePrefix("wanchal")
 	TypePrefixWebauthnCredential = TypePrefix("wancred")
+	TypePrefixGoogleVerification = TypePrefix("googleverif")
 )
 
 type Params struct {
@@ -178,4 +179,13 @@ func (c WebauthnChallenge) ToApp() seba.WebauthnChallenge {
 		Challenge:     c.Challenge,
 		CredentialIDs: c.CredentialIDs,
 	}
+}
+
+type GoogleVerification struct {
+	ID        string    `dynamo:"id"`
+	CreatedAt time.Time `dynamo:"created_at,unixtime"`
+	Nonce     string    `dynamo:"nonce"`
+	Subject   string    `dynamo:"relation"`
+	Issuser   string    `dynamo:"iss"`
+	Audience  string    `dynamo:"aud"`
 }

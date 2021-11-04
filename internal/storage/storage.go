@@ -31,4 +31,6 @@ type Storage interface {
 	GetWebauthnCredentialByCredentialID(ctx context.Context, credentialID string) (seba.WebauthnCredential, error)
 	CreateWebAuthnCredential(ctx context.Context, userID, name, attestationType, credentialID, publicKey, AAGUID string, userVerified bool, signCount int) (seba.WebauthnCredential, error)
 	UpdateWebauthnCredential(ctx context.Context, userID, credentialID string, signCount int) error
+
+	CreateGoogleVerification(ctx context.Context, nonce, iss, aud, sub string) error
 }
