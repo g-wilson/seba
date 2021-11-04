@@ -11,7 +11,7 @@ SEBA issues JWT access tokens for your application. It is specifically designed 
 Email identity can currently be verified in 2 ways:
 
 - Sending a token in an email to an email address (i.e. "magic link")
-- Google sign in authorization code
+- Google sign in ID token validation (supporting "Google One-Tap")
 
 ### oAuth 2.0
 
@@ -21,7 +21,7 @@ SEBA is designed to provide simple authentication - not authorization. oAuth 2 i
 
 - oAuth specifies that request bodies must be encoded with `application/x-www-urlencoded`, however I believe it's more common for new projects to use an entirely JSON-based API, so using JSON consistently is easier.
 
-- The PKCE (proof key for code exchange) oAuth extension is used as a fundamental security element to make sure the emails are only valid with the correct client session.
+- The PKCE (proof key for code exchange) oAuth extension is used as a fundamental security element for the email token flow, to make sure the emails are only valid with the correct client session.
 
 - Scope parameter is not used on the token endpoint. This feature is specific to scenarios where the end-user chooses what permissions they want to grant to the clients. Since SEBA is not concerned with authorization at all, it has been left... out of scope.
 
