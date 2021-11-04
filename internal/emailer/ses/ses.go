@@ -18,8 +18,8 @@ type authnEmailTemplateData struct {
 type Params struct {
 	SendForReal bool
 
+	DefaultSenderDomain string
 	DefaultReplyAddress string
-	DefaultFromAddress  string
 
 	EmailSubject string
 
@@ -42,7 +42,11 @@ func New(awsSession *session.Session, cfg Params) *SESEmailer {
 	}
 }
 
-func (e *SESEmailer) SendAuthenticationEmail(ctx context.Context, emailAddress, linkURL string) error {
+func (e *SESEmailer) SenderDomain() string {
+	return e.params.DefaultSenderDomain
+}
+
+func (e *SESEmailer) SendAuthenticationEmail(ctx context.Context, toAddress, fromAddress, linkURL string) error {
 	var htmlOutput bytes.Buffer
 	var textOutput bytes.Buffer
 
@@ -57,9 +61,9 @@ func (e *SESEmailer) SendAuthenticationEmail(ctx context.Context, emailAddress, 
 	}
 
 	email := &ses.SendEmailInput{
-		Destination:      &ses.Destination{ToAddresses: []*string{&emailAddress}},
+		Destination:      &ses.Destination{ToAddresses: []*string{&toAddress}},
 		ReplyToAddresses: []*string{&e.params.DefaultReplyAddress},
-		Source:           &e.params.DefaultFromAddress,
+		Source:           &fromAddress,
 		Message: &ses.Message{
 			Subject: &ses.Content{
 				Charset: ptrStr("UTF-8"),

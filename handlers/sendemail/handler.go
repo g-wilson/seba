@@ -37,23 +37,28 @@ func (h *Handler) Do(ctx context.Context, req *Request) error {
 		return seba.ErrClientNotFound
 	}
 
-	emailToken, err := h.Token.Generate(32)
+	authzCode, err := h.Token.Generate(32)
+	if err != nil {
+		return err
+	}
+	emailFromAddress, err := h.Token.Generate(8)
 	if err != nil {
 		return err
 	}
 
-	_, err = h.Storage.CreateAuthentication(ctx, sha256Hex(emailToken), req.Email, req.PKCEChallenge, req.ClientID)
-	if err != nil {
-		return err
-	}
+	fromAddress := fmt.Sprintf("auth_%s@%s", emailFromAddress, h.Emailer.SenderDomain())
+	linkURL := fmt.Sprintf("%s?code=%s&state=%s", client.CallbackURL, authzCode, url.QueryEscape(req.State))
 
-	log.Debugf("email_token: %s", emailToken)
-
-	linkURL := fmt.Sprintf("%s?code=%s&state=%s", client.CallbackURL, emailToken, url.QueryEscape(req.State))
-
+	log.Debugf("authz_code: %s", authzCode)
+	log.Debugf("from_address: %s", fromAddress)
 	log.Debugf("link_url: %s", linkURL)
 
-	err = h.Emailer.SendAuthenticationEmail(ctx, req.Email, linkURL)
+	_, err = h.Storage.CreateAuthentication(ctx, sha256Hex(authzCode), req.Email, req.PKCEChallenge, req.ClientID)
+	if err != nil {
+		return err
+	}
+
+	err = h.Emailer.SendAuthenticationEmail(ctx, req.Email, fromAddress, linkURL)
 	if err != nil {
 		log.Errorf("authn email sending failed: %v", err)
 

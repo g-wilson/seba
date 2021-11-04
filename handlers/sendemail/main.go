@@ -41,7 +41,7 @@ func main() {
 
 	sesEmailer := emailer.New(awsSession, emailer.Params{
 		SendForReal:         (os.Getenv("ACTUALLY_SEND_EMAILS") == "true"),
-		DefaultFromAddress:  os.Getenv("EMAIL_FROM_ADDRESS"),
+		DefaultSenderDomain: os.Getenv("EMAIL_SENDER_DOMAIN"),
 		DefaultReplyAddress: os.Getenv("EMAIL_REPLY_ADDRESS"),
 		EmailSubject:        "Sign in link",
 		HTMLEmailTemplate:   htmlEmailTemplate,

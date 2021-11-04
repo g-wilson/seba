@@ -4,14 +4,6 @@
 
 A Serverless framework application providing secure passwordless authentication.
 
-## TODO
-
-- [ ] revocation endpoint
-- [ ] introspection endpoint
-- [ ] grant type: client credentials
-- [ ] grant type: apple sign in
-- [ ] storage: faunadb
-
 SEBA is an opinionated service designed specifically for common mobile or JS web applications. The goal of SEBA is to provide a simple, sensible way to authenticate a user by using an email account as an identity. It is not concerned with granting scoped permissions to a variety of third-party clients.
 
 SEBA issues JWT access tokens for your application. It is specifically designed to be run on AWS Lambda using an HTTP API Gateway for invocation, so that you can take advantage of the provided JWT Authorizer. It also supports hardware second-factor attestation using Webauthn.

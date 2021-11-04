@@ -3,5 +3,6 @@ package emailer
 import "context"
 
 type Emailer interface {
-	SendAuthenticationEmail(ctx context.Context, emailAddress, linkURL string) error
+	SenderDomain() string
+	SendAuthenticationEmail(ctx context.Context, toAddress, fromAddress, linkURL string) error
 }
