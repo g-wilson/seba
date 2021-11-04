@@ -53,7 +53,7 @@ functions:
     environment:
       AUTH_DYNAMO_TABLE_NAME: ${self:custom.AUTH_DYNAMO_TABLE_NAME.${self:provider.stage}}
       ACTUALLY_SEND_EMAILS: ${self:custom.ACTUALLY_SEND_EMAILS.${self:provider.stage}}
-      EMAIL_FROM_ADDRESS: ${self:custom.EMAIL_FROM_ADDRESS.${self:provider.stage}}
+      EMAIL_SENDER_DOMAIN: ${self:custom.EMAIL_SENDER_DOMAIN.${self:provider.stage}}
       EMAIL_REPLY_ADDRESS: ${self:custom.EMAIL_REPLY_ADDRESS.${self:provider.stage}}
     events:
       - httpApi:
@@ -118,8 +118,8 @@ custom:
     # prod: ${ssm:/seba/prod/AUTH_PRIVATE_KEY}
   ACTUALLY_SEND_EMAILS:
     dev: false
-  EMAIL_FROM_ADDRESS:
-    dev: ${env:EMAIL_FROM_ADDRESS}
+  EMAIL_SENDER_DOMAIN:
+    dev: ${env:EMAIL_SENDER_DOMAIN}
   EMAIL_REPLY_ADDRESS:
     dev: ${env:EMAIL_REPLY_ADDRESS}
   GOOGLE_OAUTH_CLIENT_ID:
