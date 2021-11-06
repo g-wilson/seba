@@ -6,16 +6,13 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"regexp"
-	"strconv"
 	"time"
 
+	"github.com/pquerna/cachecontrol"
 	"gopkg.in/square/go-jose.v2"
 )
 
 const CertsURL = "https://www.googleapis.com/oauth2/v3/certs"
-
-var maxAgeHeaderRegexp = regexp.MustCompile("max-age=([0-9]*)")
 
 type certs struct {
 	Keys   *jose.JSONWebKeySet
@@ -55,22 +52,9 @@ func (v *GoogleVerifier) getCertificates(ctx context.Context) (*jose.JSONWebKeyS
 	}
 	defer res.Body.Close()
 
-	cacheControl := res.Header.Get("cache-control")
-	ttl := int64(7200) // 2 hours
-
-	if len(cacheControl) > 0 {
-		match := maxAgeHeaderRegexp.FindAllStringSubmatch(cacheControl, -1)
-
-		if len(match) > 0 && len(match[0]) == 2 {
-			maxAge := match[0][1]
-
-			maxAgeInt, err := strconv.ParseInt(maxAge, 10, 64)
-			if err != nil {
-				return nil, fmt.Errorf("cacheparser: %w", err)
-			}
-
-			ttl = maxAgeInt
-		}
+	_, expires, err := cachecontrol.CachableResponse(req, res, cachecontrol.Options{})
+	if err != nil {
+		return nil, fmt.Errorf("cachecontrol: %w", err)
 	}
 
 	keys := jose.JSONWebKeySet{}
@@ -87,7 +71,7 @@ func (v *GoogleVerifier) getCertificates(ctx context.Context) (*jose.JSONWebKeyS
 
 	cache = &certs{
 		Keys:   &keys,
-		Expiry: time.Now().Add(time.Second * time.Duration(ttl)),
+		Expiry: expires,
 	}
 
 	return cache.Keys, nil
