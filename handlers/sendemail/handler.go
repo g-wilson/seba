@@ -47,7 +47,7 @@ func (h *Handler) Do(ctx context.Context, req *Request) error {
 	}
 
 	fromAddress := fmt.Sprintf("auth_%s@%s", emailFromAddress, h.Emailer.SenderDomain())
-	linkURL := fmt.Sprintf("%s?code=%s&state=%s", client.CallbackURL, authzCode, url.QueryEscape(req.State))
+	linkURL := fmt.Sprintf("%s?code=%s&state=%s", client.EmailLinkBaseURL, authzCode, url.QueryEscape(req.State))
 
 	log.Debugf("authz_code: %s", authzCode)
 	log.Debugf("from_address: %s", fromAddress)
@@ -69,7 +69,6 @@ func (h *Handler) Do(ctx context.Context, req *Request) error {
 }
 
 func sha256Hex(inputStr string) string {
-	hash := sha256.New()
-	hash.Write([]byte(inputStr))
-	return hex.EncodeToString(hash.Sum(nil))
+	digest := sha256.Sum256([]byte(inputStr))
+	return hex.EncodeToString(digest[:])
 }

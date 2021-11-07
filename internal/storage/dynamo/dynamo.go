@@ -5,11 +5,11 @@ import (
 	"time"
 
 	"github.com/g-wilson/seba"
-	"github.com/segmentio/ksuid"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/guregu/dynamo"
+	"github.com/segmentio/ksuid"
 )
 
 type TypePrefix string
@@ -74,24 +74,24 @@ func (a Authentication) ToApp() seba.Authentication {
 }
 
 type RefreshToken struct {
-	ID               string     `dynamo:"id"`
-	UserID           string     `dynamo:"relation"`
-	HashedToken      string     `dynamo:"lookup"`
-	CreatedAt        time.Time  `dynamo:"created_at,unixtime"`
-	UsedAt           *time.Time `dynamo:"used_at,unixtime"`
-	ClientID         string     `dynamo:"client_id"`
-	AuthenticationID *string    `dynamo:"authentication_id"`
+	ID          string     `dynamo:"id"`
+	UserID      string     `dynamo:"relation"`
+	HashedToken string     `dynamo:"lookup"`
+	CreatedAt   time.Time  `dynamo:"created_at,unixtime"`
+	UsedAt      *time.Time `dynamo:"used_at,unixtime"`
+	ClientID    string     `dynamo:"client_id"`
+	GrantID     string     `dynamo:"grant_id"`
 }
 
 func (r RefreshToken) ToApp() seba.RefreshToken {
 	return seba.RefreshToken{
-		ID:               r.ID,
-		UserID:           r.UserID,
-		HashedToken:      r.HashedToken,
-		CreatedAt:        r.CreatedAt,
-		UsedAt:           r.UsedAt,
-		ClientID:         r.ClientID,
-		AuthenticationID: r.AuthenticationID,
+		ID:          r.ID,
+		UserID:      r.UserID,
+		HashedToken: r.HashedToken,
+		CreatedAt:   r.CreatedAt,
+		UsedAt:      r.UsedAt,
+		ClientID:    r.ClientID,
+		GrantID:     r.GrantID,
 	}
 }
 
@@ -135,7 +135,7 @@ type WebauthnCredential struct {
 	CreatedAt       time.Time  `dynamo:"created_at,unixtime"`
 	RemovedAt       *time.Time `dynamo:"removed_at,unixtime"`
 	Name            string     `dynamo:"name"`
-	CredentialID    string     `dynamo:"lookup_value"`
+	CredentialID    string     `dynamo:"lookup"`
 	PublicKey       string     `dynamo:"public_key"`
 	AttestationType string     `dynamo:"attestation_type"`
 	AAGUID          string     `dynamo:"aaguid"`
@@ -161,8 +161,8 @@ func (c WebauthnCredential) ToApp() seba.WebauthnCredential {
 
 type WebauthnChallenge struct {
 	ID            string    `dynamo:"id"`
-	UserID        string    `dynamo:"user_id"`
-	SessionID     string    `dynamo:"session_id"`
+	UserID        string    `dynamo:"relation"`
+	SessionID     string    `dynamo:"lookup"`
 	CreatedAt     time.Time `dynamo:"created_at,unixtime"`
 	ChallengeType string    `dynamo:"challenge_type"`
 	Challenge     string    `dynamo:"challenge"`
@@ -186,6 +186,17 @@ type GoogleVerification struct {
 	CreatedAt time.Time `dynamo:"created_at,unixtime"`
 	Nonce     string    `dynamo:"nonce"`
 	Subject   string    `dynamo:"relation"`
-	Issuser   string    `dynamo:"iss"`
-	Audience  string    `dynamo:"aud"`
+	Issuser   string    `dynamo:"issuer"`
+	Audience  string    `dynamo:"audience"`
+}
+
+func (c GoogleVerification) ToApp() seba.GoogleVerification {
+	return seba.GoogleVerification{
+		ID:        c.ID,
+		CreatedAt: c.CreatedAt,
+		Nonce:     c.Nonce,
+		Subject:   c.Subject,
+		Issuser:   c.Issuser,
+		Audience:  c.Audience,
+	}
 }

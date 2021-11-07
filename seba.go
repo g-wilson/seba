@@ -42,8 +42,7 @@ var (
 	ErrGoogleVerifyFailed    = hand.New("google_verify_failed")
 	ErrGoogleAlreadyVerified = hand.New("google_already_verified")
 
-	ErrUserNotFound      = hand.New("user_not_found")
-	ErrUserAlreadyExists = hand.New("user_already_exists")
+	ErrUserNotFound = hand.New("user_not_found")
 
 	ErrWebauthnChallengeNotFound  = hand.New("webauthn_challenge_not_found")
 	ErrWebauthnCredentialNotFound = hand.New("webauthn_credential_not_found")
@@ -60,11 +59,14 @@ type Client struct {
 	// DefaultAudience is the list of aud strings to be issued in the access token JWT.
 	DefaultAudience []string
 
-	// CallbackURL is the callback URL where the user will be redirected after authentication via magic link or google sign in.
-	CallbackURL string
+	// AccessTokenTTL is the validity lifetime of the access token JWT in seconds. Must be positive.
+	AccessTokenTTL int
 
-	// EnableEmailGrant will enable magic link functionality.
+	// EnableEmailGrant will enable secure link sent via email functionality.
 	EnableEmailGrant bool
+
+	// EmailLinkBaseURL is the base URL of the secure link sent via email. It must not already have a query string.
+	EmailLinkBaseURL string
 
 	// EnableGoogleGrant will enable sign in with Google functionality.
 	EnableGoogleGrant bool
@@ -78,8 +80,14 @@ type Client struct {
 	// EnableWebauthnRegistration will enable the client to register hardware security keys
 	EnableWebauthnRegistration bool
 
-	// EnableWebauthnVerification will enable the client to elevate scopes if a Webauthn challenge is completed
-	EnableWebauthnVerification bool
+	// EnableAccessTokenElevation will enable the client to elevate scopes if a Webauthn challenge is completed
+	EnableAccessTokenElevation bool
+
+	// ElevatedAccessTokenTTL is the validity lifetime of the elevated access token JWT in seconds. Must be positive.
+	ElevatedAccessTokenTTL int
+
+	// ElevatedScopes is the list of scope strings to be issued in the elevated access token JWT (when a second-factor verification took place).
+	ElevatedScopes []string
 }
 
 type Credentials struct {
@@ -100,21 +108,35 @@ type Authentication struct {
 }
 
 type RefreshToken struct {
-	ID               string     `json:"id"`
-	UserID           string     `json:"user_id"`
-	HashedToken      string     `json:"hashed_token"`
-	CreatedAt        time.Time  `json:"created_at"`
-	UsedAt           *time.Time `json:"used_at"`
-	ClientID         string     `json:"client_id"`
-	AuthenticationID *string    `json:"authentication_id"`
+	ID          string     `json:"id"`
+	UserID      string     `json:"user_id"`
+	HashedToken string     `json:"hashed_token"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UsedAt      *time.Time `json:"used_at"`
+	ClientID    string     `json:"client_id"`
+	GrantID     string     `json:"grant_id"`
 }
 
 type User struct {
 	ID        string     `json:"id"`
 	CreatedAt time.Time  `json:"created_at"`
 	RemovedAt *time.Time `json:"removed_at"`
+}
 
-	Relation string `json:"-"`
+type UserExtended struct {
+	ID                   string     `json:"id"`
+	CreatedAt            time.Time  `json:"created_at"`
+	RemovedAt            *time.Time `json:"removed_at"`
+	Emails               []Email    `json:"emails"`
+	SecondFactorEnrolled bool       `json:"second_factor_enrolled"`
+}
+
+func (u UserExtended) ToBasicUser() User {
+	return User{
+		ID:        u.ID,
+		CreatedAt: u.CreatedAt,
+		RemovedAt: u.RemovedAt,
+	}
 }
 
 type Email struct {
@@ -147,4 +169,13 @@ type WebauthnChallenge struct {
 	ChallengeType string    `json:"challenge_type"`
 	Challenge     string    `json:"challenge"`
 	CredentialIDs []string  `json:"credential_ids"`
+}
+
+type GoogleVerification struct {
+	ID        string    `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	Nonce     string    `json:"nonce"`
+	Subject   string    `json:"relation"`
+	Issuser   string    `json:"iss"`
+	Audience  string    `json:"aud"`
 }

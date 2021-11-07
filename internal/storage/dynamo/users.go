@@ -12,6 +12,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/guregu/dynamo"
+	"golang.org/x/sync/errgroup"
 )
 
 func (s *DynamoStorage) GetUserByID(ctx context.Context, userID string) (seba.User, error) {
@@ -73,6 +74,50 @@ func (s *DynamoStorage) GetUserByEmail(ctx context.Context, email string) (seba.
 	}
 
 	return ent.ToApp(), nil
+}
+
+func (s *DynamoStorage) GetUserExtended(ctx context.Context, userID string) (seba.UserExtended, error) {
+	user, err := s.GetUserByID(ctx, userID)
+	if err != nil {
+		return seba.UserExtended{}, err
+	}
+
+	extendedUser := seba.UserExtended{
+		ID:        user.ID,
+		CreatedAt: user.CreatedAt,
+		RemovedAt: user.RemovedAt,
+	}
+
+	g, gctx := errgroup.WithContext(ctx)
+
+	g.Go(func() error {
+		emails, err := s.ListUserEmails(gctx, user.ID)
+		if err != nil {
+			return err
+		}
+
+		extendedUser.Emails = emails
+
+		return nil
+	})
+
+	g.Go(func() error {
+		storedCreds, err := s.ListUserWebauthnCredentials(gctx, user.ID)
+		if err != nil {
+			return err
+		}
+
+		extendedUser.SecondFactorEnrolled = len(storedCreds) > 0
+
+		return nil
+	})
+
+	err = g.Wait()
+	if err != nil {
+		return seba.UserExtended{}, fmt.Errorf("dynamo: GetUserExtended: %w", err)
+	}
+
+	return extendedUser, nil
 }
 
 func (s *DynamoStorage) CreateUserWithEmail(ctx context.Context, emailAddress string) (seba.User, error) {

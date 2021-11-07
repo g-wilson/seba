@@ -11,7 +11,7 @@ import (
 
 type Handler struct {
 	Storage     storage.Storage
-	Credentials credentials.CredentialProvider
+	Credentials *credentials.Issuer
 	Clients     map[string]seba.Client
 	Webauthn    webauthn.WebauthnProvider
 }
@@ -52,20 +52,23 @@ func (h *Handler) Do(ctx context.Context, req *Request) (*Response, error) {
 		return nil, err
 	}
 
-	user, err := h.Storage.GetUserByID(ctx, rt.UserID)
-	if err != nil {
-		return nil, err
-	}
-
-	tokens, err := h.Credentials.CreateForUserElevated(ctx, user, client, rt.AuthenticationID)
-	if err != nil {
-		return nil, err
-	}
-
 	err = h.Storage.SetRefreshTokenUsed(ctx, chal.SessionID, rt.UserID)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Response{tokens}, nil
+	user, err := h.Storage.GetUserExtended(ctx, rt.UserID)
+	if err != nil {
+		return nil, err
+	}
+	if user.RemovedAt != nil {
+		return nil, seba.ErrUserNotFound
+	}
+
+	creds, err := h.Credentials.Issue(ctx, user, client, rt.GrantID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Response{&creds}, nil
 }

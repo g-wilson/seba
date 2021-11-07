@@ -13,7 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 )
 
-func (s *DynamoStorage) CreateGoogleVerification(ctx context.Context, nonce, iss, aud, sub string) error {
+func (s *DynamoStorage) CreateGoogleVerification(ctx context.Context, nonce, iss, aud, sub string) (seba.GoogleVerification, error) {
 	timestamp := time.Now().UTC()
 
 	ent := GoogleVerification{
@@ -44,14 +44,14 @@ func (s *DynamoStorage) CreateGoogleVerification(ctx context.Context, nonce, iss
 	if err != nil {
 		if aErr, ok := err.(awserr.Error); ok {
 			if strings.Contains(aErr.Error(), "ConditionalCheckFailed") {
-				return seba.ErrGoogleAlreadyVerified
+				return seba.GoogleVerification{}, seba.ErrGoogleAlreadyVerified
 			}
 		}
 
-		return fmt.Errorf("dynamo: CreateUserWithEmail: %w", err)
+		return seba.GoogleVerification{}, fmt.Errorf("dynamo: CreateUserWithEmail: %w", err)
 	}
 
-	return nil
+	return ent.ToApp(), nil
 }
 
 func createGoogleNonceDedupeID(nonce string) string {

@@ -13,13 +13,14 @@ type Storage interface {
 	SetAuthenticationVerified(ctx context.Context, authenticationID, email string) error
 	RevokePendingAuthentications(ctx context.Context, email string) error
 
-	CreateRefreshToken(ctx context.Context, userID, clientID, hashedToken string, authnID *string) (seba.RefreshToken, error)
+	CreateRefreshToken(ctx context.Context, userID, clientID, hashedToken, grantID string) (seba.RefreshToken, error)
 	GetRefreshTokenByID(ctx context.Context, reftokID string) (seba.RefreshToken, error)
 	GetRefreshTokenByHashedToken(ctx context.Context, hashedToken string) (seba.RefreshToken, error)
 	SetRefreshTokenUsed(ctx context.Context, reftokID, userID string) error
 
 	GetUserByID(ctx context.Context, userID string) (seba.User, error)
 	GetUserByEmail(ctx context.Context, email string) (seba.User, error)
+	GetUserExtended(ctx context.Context, userID string) (seba.UserExtended, error)
 	ListUserEmails(ctx context.Context, userID string) ([]seba.Email, error)
 	CreateUserWithEmail(ctx context.Context, emailAddress string) (seba.User, error)
 
@@ -32,5 +33,5 @@ type Storage interface {
 	CreateWebAuthnCredential(ctx context.Context, userID, name, attestationType, credentialID, publicKey, AAGUID string, userVerified bool, signCount int) (seba.WebauthnCredential, error)
 	UpdateWebauthnCredential(ctx context.Context, userID, credentialID string, signCount int) error
 
-	CreateGoogleVerification(ctx context.Context, nonce, iss, aud, sub string) error
+	CreateGoogleVerification(ctx context.Context, nonce, iss, aud, sub string) (seba.GoogleVerification, error)
 }

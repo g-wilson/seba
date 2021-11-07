@@ -12,7 +12,7 @@ import (
 	"github.com/guregu/dynamo"
 )
 
-func (s *DynamoStorage) CreateRefreshToken(ctx context.Context, userID, clientID, hashedToken string, authnID *string) (seba.RefreshToken, error) {
+func (s *DynamoStorage) CreateRefreshToken(ctx context.Context, userID, clientID, hashedToken, grantID string) (seba.RefreshToken, error) {
 	timestamp := time.Now().UTC()
 
 	ent := RefreshToken{
@@ -21,10 +21,7 @@ func (s *DynamoStorage) CreateRefreshToken(ctx context.Context, userID, clientID
 		UserID:      userID,
 		ClientID:    clientID,
 		HashedToken: hashedToken,
-	}
-
-	if authnID != nil {
-		ent.AuthenticationID = authnID
+		GrantID:     grantID,
 	}
 
 	err := s.db.Table(s.table).

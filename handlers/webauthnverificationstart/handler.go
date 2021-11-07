@@ -38,7 +38,7 @@ func (h *Handler) Do(ctx context.Context, req *Request) (*Response, error) {
 	if !ok {
 		return nil, seba.ErrClientNotFound
 	}
-	if !client.EnableWebauthnVerification {
+	if !client.EnableAccessTokenElevation {
 		return nil, seba.ErrNotSupportedByClient
 	}
 
@@ -51,7 +51,6 @@ func (h *Handler) Do(ctx context.Context, req *Request) (*Response, error) {
 }
 
 func sha256Hex(inputStr string) string {
-	hash := sha256.New()
-	hash.Write([]byte(inputStr))
-	return hex.EncodeToString(hash.Sum(nil))
+	digest := sha256.Sum256([]byte(inputStr))
+	return hex.EncodeToString(digest[:])
 }

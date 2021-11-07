@@ -43,16 +43,18 @@ func main() {
 		panic(err)
 	}
 
-	creds := &credentials.Credentials{
-		Issuer:  os.Getenv("AUTH_ISSUER"),
-		Signer:  credentials.MustCreateSigner(os.Getenv("AUTH_PRIVATE_KEY")),
-		Storage: dynamoStorage,
-		Token:   token.New(),
-	}
+	credentialIssuer := credentials.NewIssuer(
+		dynamoStorage,
+		credentials.NewGenerator(
+			os.Getenv("AUTH_ISSUER"),
+			credentials.MustCreateSigner(os.Getenv("AUTH_PRIVATE_KEY")),
+			token.New(),
+		),
+	)
 
 	handler := &Handler{
 		Storage:     dynamoStorage,
-		Credentials: creds,
+		Credentials: credentialIssuer,
 		Clients:     seba.ClientsByID,
 		Webauthn:    webauthn,
 	}
