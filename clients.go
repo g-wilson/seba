@@ -33,6 +33,18 @@ func mustReadClients() []Client {
 		panic(fmt.Errorf("cannot decode client config file at %s: %w", filepath, err))
 	}
 
+	for _, cl := range cls {
+		if cl.EnableRefreshTokenGrant && cl.RefreshTokenTTL <= 0 {
+			panic(fmt.Errorf("to enable refresh token grant, refresh token ttl must be set and greater than zero, %v provided", cl.RefreshTokenTTL))
+		}
+		if cl.AccessTokenTTL <= 0 {
+			panic(fmt.Errorf("access token ttl must be set and greater than zero, %v provided", cl.AccessTokenTTL))
+		}
+		if cl.EnableAccessTokenElevation && cl.ElevatedAccessTokenTTL <= 0 {
+			panic(fmt.Errorf("to enable access token elevation, elevated access token ttl must be set and greater than zero, %v provided", cl.ElevatedAccessTokenTTL))
+		}
+	}
+
 	return cls
 }
 
