@@ -46,7 +46,7 @@
           "AttributeType": "S"
         },
         {
-          "AttributeName": "authentication_id",
+          "AttributeName": "grant_id",
           "AttributeType": "S"
         },
         {
@@ -64,6 +64,54 @@
         {
           "AttributeName": "used_at",
           "AttributeType": "N"
+        },
+        {
+          "AttributeName": "name",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "public_key",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "attestation_type",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "aaguid",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "user_verified",
+          "AttributeType": "BOOL"
+        },
+        {
+          "AttributeName": "sign_count",
+          "AttributeType": "N"
+        },
+        {
+          "AttributeName": "challenge_type",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "challenge",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "credential_ids",
+          "AttributeType": "SS"
+        },
+        {
+          "AttributeName": "nonce",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "issuer",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "audience",
+          "AttributeType": "S"
         }
       ],
       "TableFacets": [
@@ -139,6 +187,74 @@
           "KeyAttributeAlias": {
             "PartitionKeyAlias": "email_hash",
             "SortKeyAlias": "email_dedupe_global"
+          },
+          "TableData": [],
+          "DataAccess": {
+            "MySql": {}
+          }
+        },
+        {
+          "FacetName": "WebauthnCredential",
+          "KeyAttributeAlias": {
+            "PartitionKeyAlias": "id",
+            "SortKeyAlias": "user_id"
+          },
+          "TableData": [],
+          "NonKeyAttributes": [
+            "created_at",
+            "removed_at",
+            "name",
+            "lookup",
+            "public_key",
+            "attestation_type",
+            "aaguid",
+            "user_verified",
+            "sign_count"
+          ],
+          "DataAccess": {
+            "MySql": {}
+          }
+        },
+        {
+          "FacetName": "WebauthnChallenge",
+          "KeyAttributeAlias": {
+            "PartitionKeyAlias": "id",
+            "SortKeyAlias": "user_id"
+          },
+          "TableData": [],
+          "NonKeyAttributes": [
+            "lookup",
+            "created_at",
+            "challenge_type",
+            "challenge",
+            "credential_ids"
+          ],
+          "DataAccess": {
+            "MySql": {}
+          }
+        },
+        {
+          "FacetName": "GoogleVerification",
+          "KeyAttributeAlias": {
+            "PartitionKeyAlias": "id",
+            "SortKeyAlias": "subject"
+          },
+          "TableData": [],
+          "NonKeyAttributes": [
+            "nonce",
+            "relation",
+            "issuer",
+            "audience"
+          ],
+          "DataAccess": {
+            "MySql": {}
+          }
+        },
+        {
+          "FacetName": "GoogleNonceDedupe",
+          "KeyAttributeAlias": {
+            "PartitionKeyAlias": "google_nonce",
+            "SortKeyAlias": "google_nonce_dedupe_global"
           },
           "TableData": [],
           "DataAccess": {
