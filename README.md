@@ -97,13 +97,15 @@ Sends an email to the provided address with a callback URL to your client. The U
 
 - The client must generate two secure (high-entropy) strings. One for state (verified by the client) and one for PKCE (verified by the server)
 
+Challenge values must meet the [requirements in the PKCE spec](https://datatracker.ietf.org/doc/html/rfc7636#section-4).
+
 Request:
 
 ```json
 {
 	"email": "user@example.com",
 	"state": "{ state string }",
-	"code_challenge": "{ sha256 hash of PKCE string }",
+	"code_challenge": "{ base64-url encoded sha256 digest of a 32-octet random value }",
 	"client_id": "your-client-id"
 }
 ```
@@ -122,11 +124,13 @@ This the equivalent oAuth 2 "token endpoint".
 
 This grant uses PKCE to bind this request to the same client session as the original send_authentication_email request.
 
+Verifier values must meet the [requirements in the PKCE spec](https://datatracker.ietf.org/doc/html/rfc7636#section-4).
+
 ```json
 {
 	"grant_type": "email_token",
 	"code": "{ code param from callback URL }",
-	"code_verifier": "{ original PKCE string }",
+	"code_verifier": "{ base64-url encoded form of the original 32-octet random value }",
 	"client_id": "your-client-id"
 }
 ```
