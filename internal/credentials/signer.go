@@ -4,25 +4,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/g-wilson/seba/internal/token"
-
 	"gopkg.in/square/go-jose.v2"
 )
-
-type Generator struct {
-	Issuer string
-
-	signer jose.Signer
-	token  token.Token
-}
-
-func NewGenerator(issuer string, signer jose.Signer, tokenGenerator token.Token) *Generator {
-	return &Generator{
-		Issuer: issuer,
-		signer: signer,
-		token:  tokenGenerator,
-	}
-}
 
 func MustCreateSigner(keyString string) jose.Signer {
 	key := jose.JSONWebKey{}

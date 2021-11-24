@@ -44,12 +44,12 @@ func main() {
 	}
 
 	credentialIssuer := credentials.NewIssuer(
-		dynamoStorage,
 		credentials.NewGenerator(
 			os.Getenv("AUTH_ISSUER"),
 			credentials.MustCreateSigner(os.Getenv("AUTH_PRIVATE_KEY")),
 			token.New(),
 		),
+		dynamoStorage.CreateRefreshToken,
 	)
 
 	handler := &Handler{

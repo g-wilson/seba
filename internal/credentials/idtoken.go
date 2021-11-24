@@ -24,23 +24,6 @@ type IDTokenClaims struct {
 	jwt.Claims
 }
 
-func (g *Generator) NewIDToken(user seba.User, client seba.Client) *IDToken {
-	return &IDToken{
-		claims: &IDTokenClaims{
-			Emails:               []string{},
-			SecondFactorEnrolled: false,
-			Claims: jwt.Claims{
-				Subject:   user.ID,
-				Issuer:    g.Issuer,
-				Audience:  jwt.Audience{client.ID},
-				IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
-				NotBefore: jwt.NewNumericDate(time.Now().UTC()),
-				Expiry:    jwt.NewNumericDate(time.Now().UTC().Add(IDTokenTTL)),
-			},
-		},
-	}
-}
-
 func (t *IDToken) WithEmails(emails []seba.Email) *IDToken {
 	for _, em := range emails {
 		t.claims.Emails = append(t.claims.Emails, em.Email)

@@ -26,31 +26,6 @@ type AccessTokenClaims struct {
 	jwt.Claims
 }
 
-func (g *Generator) NewAccessToken(user seba.User, client seba.Client) *AccessToken {
-	cl := &AccessTokenClaims{
-		ClientID: client.ID,
-		Scope:    strings.Join(client.DefaultScopes, " "),
-		Claims: jwt.Claims{
-			Subject:   user.ID,
-			Issuer:    g.Issuer,
-			Audience:  client.DefaultAudience,
-			IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
-			NotBefore: jwt.NewNumericDate(time.Now().UTC()),
-		},
-	}
-
-	if client.AccessTokenTTL > 0 {
-		cl.Expiry = jwt.NewNumericDate(time.Now().UTC().Add(time.Duration(client.AccessTokenTTL) * time.Second))
-	}
-
-	return &AccessToken{
-		signer: g.signer,
-		client: &client,
-		user:   &user,
-		claims: cl,
-	}
-}
-
 func (t *AccessToken) Elevate() *AccessToken {
 	if !t.client.EnableAccessTokenElevation {
 		return t
