@@ -1,4 +1,4 @@
-package main
+package webauthnverificationstart
 
 import (
 	"context"

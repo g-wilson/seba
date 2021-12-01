@@ -49,11 +49,11 @@
 		"path": "",
 		"requestTimeEpoch": 0,
 		"resourcePath": "/{proxy+}",
-		"httpMethod": "GET",
+		"httpMethod": "POST",
 		"apiId": "wt6mne2s9k"
 	},
 	"resource": "/{proxy+}",
-	"httpMethod": "GET",
+	"httpMethod": "POST",
 	"queryStringParameters": {
 		"name": "me"
 	},

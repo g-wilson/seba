@@ -1,4 +1,4 @@
-package main
+package sendemail
 
 import (
 	"context"

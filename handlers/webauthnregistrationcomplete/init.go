@@ -1,14 +1,15 @@
-package main
+package webauthnregistrationcomplete
 
 import (
 	"embed"
 	"os"
 
 	"github.com/g-wilson/seba"
+	"github.com/g-wilson/seba/internal/credentials"
 	dynamo "github.com/g-wilson/seba/internal/storage/dynamo"
+	"github.com/g-wilson/seba/internal/token"
 	"github.com/g-wilson/seba/internal/webauthn"
 
-	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/g-wilson/runtime/logger"
@@ -19,8 +20,8 @@ import (
 //go:embed *.json
 var fs embed.FS
 
-func main() {
-	log := logger.Create("webauthn-verification-start", os.Getenv("LOG_FORMAT"), os.Getenv("LOG_LEVEL"))
+func Init() *rpcmethod.Method {
+	log := logger.Create("webauthn-registration-complete", os.Getenv("LOG_FORMAT"), os.Getenv("LOG_LEVEL"))
 
 	awsConfig := aws.NewConfig().WithRegion(os.Getenv("AWS_REGION"))
 	awsSession := session.Must(session.NewSession())
@@ -41,18 +42,26 @@ func main() {
 		panic(err)
 	}
 
+	credentialIssuer := credentials.NewIssuer(
+		credentials.NewGenerator(
+			os.Getenv("AUTH_ISSUER"),
+			credentials.MustCreateSigner(os.Getenv("AUTH_PRIVATE_KEY")),
+			token.New(),
+		),
+		dynamoStorage.CreateRefreshToken,
+	)
+
 	handler := &Handler{
-		Storage:  dynamoStorage,
-		Clients:  seba.ClientsByID,
-		Webauthn: webauthn,
+		Storage:     dynamoStorage,
+		Credentials: credentialIssuer,
+		Clients:     seba.ClientsByID,
+		Webauthn:    webauthn,
 	}
 
-	rpc := rpcmethod.New(rpcmethod.Params{
+	return rpcmethod.New(rpcmethod.Params{
 		Logger:  log,
-		Name:    "start_webauthn_verification",
+		Name:    "webauthn-registration-complete",
 		Handler: handler.Do,
 		Schema:  schema.MustLoad(fs, "schema.json"),
 	})
-
-	lambda.Start(rpc.WrapAPIGatewayHTTP())
 }

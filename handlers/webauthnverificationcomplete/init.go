@@ -1,4 +1,4 @@
-package main
+package webauthnverificationcomplete
 
 import (
 	"embed"
@@ -6,11 +6,10 @@ import (
 
 	"github.com/g-wilson/seba"
 	"github.com/g-wilson/seba/internal/credentials"
-	"github.com/g-wilson/seba/internal/google"
-	"github.com/g-wilson/seba/internal/storage/dynamo"
+	dynamo "github.com/g-wilson/seba/internal/storage/dynamo"
 	"github.com/g-wilson/seba/internal/token"
+	"github.com/g-wilson/seba/internal/webauthn"
 
-	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/g-wilson/runtime/logger"
@@ -21,8 +20,8 @@ import (
 //go:embed *.json
 var fs embed.FS
 
-func main() {
-	log := logger.Create("authenticate", os.Getenv("LOG_FORMAT"), os.Getenv("LOG_LEVEL"))
+func Init() *rpcmethod.Method {
+	log := logger.Create("webauthn-verification-complete", os.Getenv("LOG_FORMAT"), os.Getenv("LOG_LEVEL"))
 
 	awsConfig := aws.NewConfig().WithRegion(os.Getenv("AWS_REGION"))
 	awsSession := session.Must(session.NewSession())
@@ -33,6 +32,16 @@ func main() {
 		TableName:  os.Getenv("AUTH_DYNAMO_TABLE_NAME"),
 	})
 
+	webauthn, err := webauthn.New(webauthn.Params{
+		RPDisplayName: os.Getenv("WEBAUTHN_DISPLAY_NAME"),
+		RPID:          os.Getenv("AUTH_ISSUER"),
+		RPOrigin:      os.Getenv("WEBAUTHN_ORIGIN"),
+		Storage:       dynamoStorage,
+	})
+	if err != nil {
+		panic(err)
+	}
+
 	credentialIssuer := credentials.NewIssuer(
 		credentials.NewGenerator(
 			os.Getenv("AUTH_ISSUER"),
@@ -42,24 +51,17 @@ func main() {
 		dynamoStorage.CreateRefreshToken,
 	)
 
-	googleVerifier := google.NewVerifier(google.Config{
-		ClientID: os.Getenv("GOOGLE_CLIENT_ID"),
-	})
-
 	handler := &Handler{
-		Token:          token.New(),
-		Storage:        dynamoStorage,
-		Credentials:    credentialIssuer,
-		Clients:        seba.ClientsByID,
-		GoogleVerifier: googleVerifier,
+		Storage:     dynamoStorage,
+		Credentials: credentialIssuer,
+		Clients:     seba.ClientsByID,
+		Webauthn:    webauthn,
 	}
 
-	rpc := rpcmethod.New(rpcmethod.Params{
+	return rpcmethod.New(rpcmethod.Params{
 		Logger:  log,
-		Name:    "authenticate",
+		Name:    "webauthn-verification-complete",
 		Handler: handler.Do,
 		Schema:  schema.MustLoad(fs, "schema.json"),
 	})
-
-	lambda.Start(rpc.WrapAPIGatewayHTTP())
 }

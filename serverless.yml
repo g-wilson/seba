@@ -25,20 +25,25 @@ package:
 
 functions:
   openidconfig:
-    handler: bin/openidconfig
+    handler: ${self:custom.monobinaryPath}
+    environment:
+      LAMBDA_GO_ENTRYPOINT: openidconfig
     events:
       - httpApi:
           path: /.well-known/openid-configuration
           method: get
   openidkeys:
-    handler: bin/openidkeys
+    handler: ${self:custom.monobinaryPath}
+    environment:
+      LAMBDA_GO_ENTRYPOINT: openidkeys
     events:
       - httpApi:
           path: /.well-known/jwks.json
           method: get
   authenticate:
-    handler: bin/authenticate
+    handler: ${self:custom.monobinaryPath}
     environment:
+      LAMBDA_GO_ENTRYPOINT: authenticate
       AUTH_DYNAMO_TABLE_NAME: ${self:custom.AUTH_DYNAMO_TABLE_NAME.${self:provider.stage}}
       AUTH_ISSUER: ${self:custom.AUTH_ISSUER.${self:provider.stage}}
       AUTH_PRIVATE_KEY: ${self:custom.AUTH_PRIVATE_KEY.${self:provider.stage}}
@@ -48,8 +53,9 @@ functions:
           path: /2021-09-01/authenticate
           method: post
   sendemail:
-    handler: bin/sendemail
+    handler: ${self:custom.monobinaryPath}
     environment:
+      LAMBDA_GO_ENTRYPOINT: sendemail
       AUTH_DYNAMO_TABLE_NAME: ${self:custom.AUTH_DYNAMO_TABLE_NAME.${self:provider.stage}}
       ACTUALLY_SEND_EMAILS: ${self:custom.ACTUALLY_SEND_EMAILS.${self:provider.stage}}
       EMAIL_SENDER_DOMAIN: ${self:custom.EMAIL_SENDER_DOMAIN.${self:provider.stage}}
@@ -59,8 +65,9 @@ functions:
           path: /2021-09-01/send_authentication_email
           method: post
   webauthnregistrationstart:
-    handler: bin/webauthnregistrationstart
+    handler: ${self:custom.monobinaryPath}
     environment:
+      LAMBDA_GO_ENTRYPOINT: webauthnregistrationstart
       AUTH_DYNAMO_TABLE_NAME: ${self:custom.AUTH_DYNAMO_TABLE_NAME.${self:provider.stage}}
       AUTH_ISSUER: ${self:custom.AUTH_ISSUER.${self:provider.stage}}
       WEBAUTHN_DISPLAY_NAME: ${self:custom.WEBAUTHN_DISPLAY_NAME.${self:provider.stage}}
@@ -70,8 +77,9 @@ functions:
           path: /2021-09-01/start_webauthn_registration
           method: post
   webauthnregistrationcomplete:
-    handler: bin/webauthnregistrationcomplete
+    handler: ${self:custom.monobinaryPath}
     environment:
+      LAMBDA_GO_ENTRYPOINT: webauthnregistrationcomplete
       AUTH_DYNAMO_TABLE_NAME: ${self:custom.AUTH_DYNAMO_TABLE_NAME.${self:provider.stage}}
       AUTH_ISSUER: ${self:custom.AUTH_ISSUER.${self:provider.stage}}
       AUTH_PRIVATE_KEY: ${self:custom.AUTH_PRIVATE_KEY.${self:provider.stage}}
@@ -82,8 +90,9 @@ functions:
           path: /2021-09-01/complete_webauthn_registration
           method: post
   webauthnverificationstart:
-    handler: bin/webauthnverificationstart
+    handler: ${self:custom.monobinaryPath}
     environment:
+      LAMBDA_GO_ENTRYPOINT: webauthnverificationstart
       AUTH_DYNAMO_TABLE_NAME: ${self:custom.AUTH_DYNAMO_TABLE_NAME.${self:provider.stage}}
       AUTH_ISSUER: ${self:custom.AUTH_ISSUER.${self:provider.stage}}
       WEBAUTHN_DISPLAY_NAME: ${self:custom.WEBAUTHN_DISPLAY_NAME.${self:provider.stage}}
@@ -93,8 +102,9 @@ functions:
           path: /2021-09-01/start_webauthn_verification
           method: post
   webauthnverificationcomplete:
-    handler: bin/webauthnverificationcomplete
+    handler: ${self:custom.monobinaryPath}
     environment:
+      LAMBDA_GO_ENTRYPOINT: webauthnverificationcomplete
       AUTH_DYNAMO_TABLE_NAME: ${self:custom.AUTH_DYNAMO_TABLE_NAME.${self:provider.stage}}
       AUTH_ISSUER: ${self:custom.AUTH_ISSUER.${self:provider.stage}}
       AUTH_PRIVATE_KEY: ${self:custom.AUTH_PRIVATE_KEY.${self:provider.stage}}
@@ -108,6 +118,7 @@ functions:
 custom:
   stages:
     - dev
+  monobinaryPath: "bin/service"
   AUTH_ISSUER:
     dev: ${env:AUTH_ISSUER}
   AUTH_DYNAMO_TABLE_NAME:

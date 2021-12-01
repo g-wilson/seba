@@ -1,4 +1,4 @@
-package main
+package sendemail
 
 import (
 	"embed"
@@ -12,7 +12,6 @@ import (
 	dynamo "github.com/g-wilson/seba/internal/storage/dynamo"
 	"github.com/g-wilson/seba/internal/token"
 
-	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/g-wilson/runtime/logger"
@@ -23,7 +22,7 @@ import (
 //go:embed *.json
 var fs embed.FS
 
-func main() {
+func Init() *rpcmethod.Method {
 	log := logger.Create("sendemail", os.Getenv("LOG_FORMAT"), os.Getenv("LOG_LEVEL"))
 
 	awsConfig := aws.NewConfig().WithRegion(os.Getenv("AWS_REGION"))
@@ -61,12 +60,10 @@ func main() {
 		Token:   token.New(),
 	}
 
-	rpc := rpcmethod.New(rpcmethod.Params{
+	return rpcmethod.New(rpcmethod.Params{
 		Logger:  log,
 		Name:    "send_authentication_email",
 		Handler: handler.Do,
 		Schema:  schema.MustLoad(fs, "schema.json"),
 	})
-
-	lambda.Start(rpc.WrapAPIGatewayHTTP())
 }

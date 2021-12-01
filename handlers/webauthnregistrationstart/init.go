@@ -1,4 +1,4 @@
-package main
+package webauthnregistrationstart
 
 import (
 	"embed"
@@ -8,7 +8,6 @@ import (
 	dynamo "github.com/g-wilson/seba/internal/storage/dynamo"
 	"github.com/g-wilson/seba/internal/webauthn"
 
-	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/g-wilson/runtime/logger"
@@ -19,7 +18,7 @@ import (
 //go:embed *.json
 var fs embed.FS
 
-func main() {
+func Init() *rpcmethod.Method {
 	log := logger.Create("webauthn-registration-start", os.Getenv("LOG_FORMAT"), os.Getenv("LOG_LEVEL"))
 
 	awsConfig := aws.NewConfig().WithRegion(os.Getenv("AWS_REGION"))
@@ -47,12 +46,10 @@ func main() {
 		Webauthn: webauthn,
 	}
 
-	rpc := rpcmethod.New(rpcmethod.Params{
+	return rpcmethod.New(rpcmethod.Params{
 		Logger:  log,
-		Name:    "start_webauthn_registration",
+		Name:    "webauthn-registration-start",
 		Handler: handler.Do,
 		Schema:  schema.MustLoad(fs, "schema.json"),
 	})
-
-	lambda.Start(rpc.WrapAPIGatewayHTTP())
 }
