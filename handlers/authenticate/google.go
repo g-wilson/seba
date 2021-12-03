@@ -5,15 +5,15 @@ import (
 
 	"github.com/g-wilson/seba"
 
-	"github.com/g-wilson/runtime/logger"
+	logger "github.com/g-wilson/runtime/ctxlog"
 )
 
-func (h *Handler) useGoogleToken(ctx context.Context, code string, client seba.Client) (string, string, error) {
+func (f *Function) useGoogleToken(ctx context.Context, code string, client seba.Client) (string, string, error) {
 	if !client.EnableGoogleGrant {
 		return "", "", seba.ErrNotSupportedByClient
 	}
 
-	cl, err := h.GoogleVerifier.Verify(ctx, code)
+	cl, err := f.GoogleVerifier.Verify(ctx, code)
 	if err != nil {
 		logger.FromContext(ctx).Update(
 			logger.FromContext(ctx).Entry().WithField("google_verifier_error", err),
@@ -35,12 +35,12 @@ func (h *Handler) useGoogleToken(ctx context.Context, code string, client seba.C
 	}
 
 	// checks if nonce has already been used, errors with seba.ErrGoogleAlreadyVerified
-	gv, err := h.Storage.CreateGoogleVerification(ctx, cl.Nonce, cl.Issuer, cl.Audience[0], cl.Subject)
+	gv, err := f.Storage.CreateGoogleVerification(ctx, cl.Nonce, cl.Issuer, cl.Audience[0], cl.Subject)
 	if err != nil {
 		return "", "", err
 	}
 
-	user, err := h.getOrCreateUserByEmail(ctx, cl.Email)
+	user, err := f.getOrCreateUserByEmail(ctx, cl.Email)
 	if err != nil {
 		return "", "", err
 	}

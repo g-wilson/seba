@@ -10,7 +10,7 @@ import (
 	"github.com/g-wilson/seba"
 )
 
-func (h *Handler) useEmailToken(ctx context.Context, token string, client seba.Client, verifier *string) (string, string, error) {
+func (f *Function) useEmailToken(ctx context.Context, token string, client seba.Client, verifier *string) (string, string, error) {
 	if !client.EnableEmailGrant {
 		return "", "", seba.ErrNotSupportedByClient
 	}
@@ -19,7 +19,7 @@ func (h *Handler) useEmailToken(ctx context.Context, token string, client seba.C
 		return "", "", seba.ErrPKCEVerifierRequired
 	}
 
-	authn, err := h.Storage.GetAuthenticationByHashedCode(ctx, sha256Hex(token))
+	authn, err := f.Storage.GetAuthenticationByHashedCode(ctx, sha256Hex(token))
 	if err != nil {
 		return "", "", err
 	}
@@ -47,17 +47,17 @@ func (h *Handler) useEmailToken(ctx context.Context, token string, client seba.C
 		return "", "", seba.ErrPKCEChallengeFailed
 	}
 
-	user, err := h.getOrCreateUserByEmail(ctx, authn.Email)
+	user, err := f.getOrCreateUserByEmail(ctx, authn.Email)
 	if err != nil {
 		return "", "", err
 	}
 
-	err = h.Storage.SetAuthenticationVerified(ctx, authn.ID, authn.Email)
+	err = f.Storage.SetAuthenticationVerified(ctx, authn.ID, authn.Email)
 	if err != nil {
 		return "", "", err
 	}
 
-	err = h.Storage.RevokePendingAuthentications(ctx, authn.Email)
+	err = f.Storage.RevokePendingAuthentications(ctx, authn.Email)
 	if err != nil {
 		return "", "", err
 	}

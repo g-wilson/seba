@@ -9,7 +9,7 @@ import (
 	"github.com/g-wilson/seba/internal/webauthn"
 )
 
-type Handler struct {
+type Function struct {
 	Storage     storage.Storage
 	Credentials *credentials.Issuer
 	Clients     map[string]seba.Client
@@ -25,13 +25,13 @@ type Response struct {
 	*seba.Credentials
 }
 
-func (h *Handler) Do(ctx context.Context, req *Request) (*Response, error) {
-	chal, err := h.Storage.GetWebauthnChallenge(ctx, req.ChallengeID)
+func (f *Function) Do(ctx context.Context, req *Request) (*Response, error) {
+	chal, err := f.Storage.GetWebauthnChallenge(ctx, req.ChallengeID)
 	if err != nil {
 		return nil, err
 	}
 
-	rt, err := h.Storage.GetRefreshTokenByID(ctx, chal.SessionID)
+	rt, err := f.Storage.GetRefreshTokenByID(ctx, chal.SessionID)
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +39,7 @@ func (h *Handler) Do(ctx context.Context, req *Request) (*Response, error) {
 		return nil, seba.ErrRefreshTokenUsed
 	}
 
-	client, ok := h.Clients[rt.ClientID]
+	client, ok := f.Clients[rt.ClientID]
 	if !ok {
 		return nil, seba.ErrClientNotFound
 	}
@@ -47,17 +47,17 @@ func (h *Handler) Do(ctx context.Context, req *Request) (*Response, error) {
 		return nil, seba.ErrNotSupportedByClient
 	}
 
-	_, err = h.Webauthn.CompleteRegistration(ctx, chal, req.AttestationResponse)
+	_, err = f.Webauthn.CompleteRegistration(ctx, chal, req.AttestationResponse)
 	if err != nil {
 		return nil, err
 	}
 
-	err = h.Storage.SetRefreshTokenUsed(ctx, chal.SessionID, rt.UserID)
+	err = f.Storage.SetRefreshTokenUsed(ctx, chal.SessionID, rt.UserID)
 	if err != nil {
 		return nil, err
 	}
 
-	user, err := h.Storage.GetUserExtended(ctx, rt.UserID)
+	user, err := f.Storage.GetUserExtended(ctx, rt.UserID)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +65,7 @@ func (h *Handler) Do(ctx context.Context, req *Request) (*Response, error) {
 		return nil, seba.ErrUserNotFound
 	}
 
-	creds, err := h.Credentials.Issue(ctx, user, client, rt.GrantID)
+	creds, err := f.Credentials.Issue(ctx, user, client, rt.GrantID)
 	if err != nil {
 		return nil, err
 	}

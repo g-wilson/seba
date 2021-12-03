@@ -3,13 +3,14 @@ module github.com/g-wilson/seba
 go 1.17
 
 require (
-	github.com/aws/aws-lambda-go v1.16.0
+	github.com/aws/aws-lambda-go v1.27.0
 	github.com/aws/aws-sdk-go v1.30.4
 	github.com/duo-labs/webauthn v0.0.0-20210727191636-9f1b88ef44cc
-	github.com/g-wilson/runtime v0.0.0-20210829195217-3053684d802b
+	github.com/g-wilson/runtime v0.0.0-20211203222121-63f602b1f1f2
 	github.com/guregu/dynamo v1.7.0
 	github.com/pquerna/cachecontrol v0.1.0
 	github.com/segmentio/ksuid v1.0.4
+	github.com/sirupsen/logrus v1.8.1
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
 	gopkg.in/square/go-jose.v2 v2.6.0
 )
@@ -23,10 +24,8 @@ require (
 	github.com/google/certificate-transparency-go v1.0.21 // indirect
 	github.com/google/go-cmp v0.5.6 // indirect
 	github.com/jmespath/go-jmespath v0.3.0 // indirect
-	github.com/konsorten/go-windows-terminal-sequences v1.0.1 // indirect
 	github.com/mitchellh/mapstructure v1.1.2 // indirect
 	github.com/satori/go.uuid v1.2.0 // indirect
-	github.com/sirupsen/logrus v1.5.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect

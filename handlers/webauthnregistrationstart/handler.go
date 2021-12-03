@@ -10,7 +10,7 @@ import (
 	"github.com/g-wilson/seba/internal/webauthn"
 )
 
-type Handler struct {
+type Function struct {
 	Storage  storage.Storage
 	Clients  map[string]seba.Client
 	Webauthn webauthn.WebauthnProvider
@@ -25,8 +25,8 @@ type Response struct {
 	AttestationOptions interface{} `json:"attestation_options"`
 }
 
-func (h *Handler) Do(ctx context.Context, req *Request) (*Response, error) {
-	rt, err := h.Storage.GetRefreshTokenByHashedToken(ctx, sha256Hex(req.RefreshToken))
+func (f *Function) Do(ctx context.Context, req *Request) (*Response, error) {
+	rt, err := f.Storage.GetRefreshTokenByHashedToken(ctx, sha256Hex(req.RefreshToken))
 	if err != nil {
 		return nil, err
 	}
@@ -34,7 +34,7 @@ func (h *Handler) Do(ctx context.Context, req *Request) (*Response, error) {
 		return nil, seba.ErrRefreshTokenUsed
 	}
 
-	client, ok := h.Clients[rt.ClientID]
+	client, ok := f.Clients[rt.ClientID]
 	if !ok {
 		return nil, seba.ErrClientNotFound
 	}
@@ -42,7 +42,7 @@ func (h *Handler) Do(ctx context.Context, req *Request) (*Response, error) {
 		return nil, seba.ErrNotSupportedByClient
 	}
 
-	res, err := h.Webauthn.StartRegistration(ctx, rt.UserID, rt.ID)
+	res, err := f.Webauthn.StartRegistration(ctx, rt.UserID, rt.ID)
 	if err != nil {
 		return nil, err
 	}

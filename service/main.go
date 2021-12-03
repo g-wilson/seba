@@ -15,10 +15,10 @@ import (
 	"github.com/g-wilson/seba/handlers/webauthnverificationstart"
 
 	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/g-wilson/runtime/rpcmethod"
+	"github.com/g-wilson/runtime/http"
 )
 
-type initFn func() *rpcmethod.Method
+type initFn func() (http.Handler, error)
 
 var Handlers = map[string]initFn{
 	"openidconfig":                 openidconfig.Init,
@@ -42,10 +42,13 @@ func main() {
 		panic(fmt.Errorf("entrypoint %s not found", entrypoint))
 	}
 
-	handler := initFn()
+	handler, err := initFn()
+	if err != nil {
+		panic(err)
+	}
 	if handler == nil {
 		panic(errors.New("entrypoint returned nil handler"))
 	}
 
-	lambda.Start(handler.WrapAPIGatewayHTTP())
+	lambda.Start(handler.Handle)
 }

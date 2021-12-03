@@ -167,14 +167,14 @@ func TestHandler_useEmailToken(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &Handler{
+			f := &Function{
 				Token:          tt.fields.Token,
 				Storage:        tt.fields.Storage,
 				Credentials:    tt.fields.Credentials,
 				Clients:        tt.fields.Clients,
 				GoogleVerifier: tt.fields.GoogleVerifier,
 			}
-			got, got1, err := h.useEmailToken(tt.args.ctx, tt.args.token, tt.args.client, tt.args.verifier)
+			got, got1, err := f.useEmailToken(tt.args.ctx, tt.args.token, tt.args.client, tt.args.verifier)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Handler.useEmailToken() error = %v, wantErr %v", err, tt.wantErr)
 				return

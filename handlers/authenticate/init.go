@@ -12,16 +12,16 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/g-wilson/runtime/logger"
-	"github.com/g-wilson/runtime/rpcmethod"
+	"github.com/g-wilson/runtime/ctxlog"
+	"github.com/g-wilson/runtime/http"
 	"github.com/g-wilson/runtime/schema"
 )
 
 //go:embed *.json
 var fs embed.FS
 
-func Init() *rpcmethod.Method {
-	log := logger.Create("authenticate", os.Getenv("LOG_FORMAT"), os.Getenv("LOG_LEVEL"))
+func Init() (http.Handler, error) {
+	log := ctxlog.Create("authenticate", os.Getenv("LOG_FORMAT"), os.Getenv("LOG_LEVEL"))
 
 	awsConfig := aws.NewConfig().WithRegion(os.Getenv("AWS_REGION"))
 	awsSession := session.Must(session.NewSession())
@@ -45,7 +45,7 @@ func Init() *rpcmethod.Method {
 		ClientID: os.Getenv("GOOGLE_CLIENT_ID"),
 	})
 
-	handler := &Handler{
+	f := &Function{
 		Token:          token.New(),
 		Storage:        dynamoStorage,
 		Credentials:    credentialIssuer,
@@ -53,10 +53,14 @@ func Init() *rpcmethod.Method {
 		GoogleVerifier: googleVerifier,
 	}
 
-	return rpcmethod.New(rpcmethod.Params{
-		Logger:  log,
-		Name:    "authenticate",
-		Handler: handler.Do,
-		Schema:  schema.MustLoad(fs, "schema.json"),
-	})
+	h, err := http.NewJSONHandler(f.Do, schema.MustLoad(fs, "schema.json"))
+	if err != nil {
+		return nil, err
+	}
+
+	return http.WithMiddleware(
+		h,
+		http.CreateRequestLogger(log),
+		http.JSONErrorHandler,
+	), nil
 }

@@ -71,14 +71,14 @@ func TestHandler_Do(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &Handler{
+			f := &Function{
 				Token:          tt.fields.Token,
 				Storage:        tt.fields.Storage,
 				Credentials:    tt.fields.Credentials,
 				Clients:        tt.fields.Clients,
 				GoogleVerifier: tt.fields.GoogleVerifier,
 			}
-			gotRes, err := h.Do(tt.args.ctx, tt.args.req)
+			gotRes, err := f.Do(tt.args.ctx, tt.args.req)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Handler.Do() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -146,14 +146,14 @@ func TestHandler_getOrCreateUserByEmail(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &Handler{
+			f := &Function{
 				Token:          tt.fields.Token,
 				Storage:        tt.fields.Storage,
 				Credentials:    tt.fields.Credentials,
 				Clients:        tt.fields.Clients,
 				GoogleVerifier: tt.fields.GoogleVerifier,
 			}
-			gotUser, err := h.getOrCreateUserByEmail(tt.args.ctx, tt.args.email)
+			gotUser, err := f.getOrCreateUserByEmail(tt.args.ctx, tt.args.email)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Handler.getOrCreateUserByEmail() error = %v, wantErr %v", err, tt.wantErr)
 				return

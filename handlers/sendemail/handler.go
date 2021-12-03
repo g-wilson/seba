@@ -12,10 +12,10 @@ import (
 	"github.com/g-wilson/seba/internal/storage"
 	"github.com/g-wilson/seba/internal/token"
 
-	"github.com/g-wilson/runtime/logger"
+	logger "github.com/g-wilson/runtime/ctxlog"
 )
 
-type Handler struct {
+type Function struct {
 	Storage storage.Storage
 	Emailer emailer.Emailer
 	Token   token.Token
@@ -29,36 +29,36 @@ type Request struct {
 	PKCEChallenge string `json:"pkce_challenge"`
 }
 
-func (h *Handler) Do(ctx context.Context, req *Request) error {
+func (f *Function) Do(ctx context.Context, req *Request) error {
 	log := logger.FromContext(ctx).Entry()
 
-	client, ok := h.Clients[req.ClientID]
+	client, ok := f.Clients[req.ClientID]
 	if !ok {
 		return seba.ErrClientNotFound
 	}
 
-	authzCode, err := h.Token.Generate(32)
+	authzCode, err := f.Token.Generate(32)
 	if err != nil {
 		return err
 	}
-	emailFromAddress, err := h.Token.Generate(8)
+	emailFromAddress, err := f.Token.Generate(8)
 	if err != nil {
 		return err
 	}
 
-	fromAddress := fmt.Sprintf("auth_%s@%s", emailFromAddress, h.Emailer.SenderDomain())
+	fromAddress := fmt.Sprintf("auth_%s@%s", emailFromAddress, f.Emailer.SenderDomain())
 	linkURL := fmt.Sprintf("%s?code=%s&state=%s", client.EmailLinkBaseURL, authzCode, url.QueryEscape(req.State))
 
 	log.Debugf("authz_code: %s", authzCode)
 	log.Debugf("from_address: %s", fromAddress)
 	log.Debugf("link_url: %s", linkURL)
 
-	_, err = h.Storage.CreateAuthentication(ctx, sha256Hex(authzCode), req.Email, req.PKCEChallenge, req.ClientID)
+	_, err = f.Storage.CreateAuthentication(ctx, sha256Hex(authzCode), req.Email, req.PKCEChallenge, req.ClientID)
 	if err != nil {
 		return err
 	}
 
-	err = h.Emailer.SendAuthenticationEmail(ctx, req.Email, fromAddress, linkURL)
+	err = f.Emailer.SendAuthenticationEmail(ctx, req.Email, fromAddress, linkURL)
 	if err != nil {
 		log.Errorf("authn email sending failed: %v", err)
 

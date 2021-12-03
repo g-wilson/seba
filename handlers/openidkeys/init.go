@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/g-wilson/runtime/logger"
-	"github.com/g-wilson/runtime/rpcmethod"
+	"github.com/g-wilson/runtime/ctxlog"
+	"github.com/g-wilson/runtime/http"
 )
 
 //go:embed *.json
@@ -30,26 +30,33 @@ type Response struct {
 	} `json:"keys"`
 }
 
-func Init() *rpcmethod.Method {
-	log := logger.Create(servicename, os.Getenv("LOG_FORMAT"), os.Getenv("LOG_LEVEL"))
+func Init() (http.Handler, error) {
+	log := ctxlog.Create(servicename, os.Getenv("LOG_FORMAT"), os.Getenv("LOG_LEVEL"))
 
 	file, err := fs.Open(keypath)
 	if err != nil {
-		panic(fmt.Errorf("cannot open keyfile at %s: %w", keypath, err))
+		return nil, fmt.Errorf("cannot open keyfile at %s: %w", keypath, err)
 	}
 
 	resBody := Response{}
 	fileReader := json.NewDecoder(file)
 	err = fileReader.Decode(&resBody)
 	if err != nil {
-		panic(fmt.Errorf("cannot read keyfile at %s: %w", keypath, err))
+		return nil, fmt.Errorf("cannot read keyfile at %s: %w", keypath, err)
 	}
 
-	return rpcmethod.New(rpcmethod.Params{
-		Logger: log,
-		Name:   servicename,
-		Handler: func(ctx context.Context) (res *Response, err error) {
-			return &resBody, nil
-		},
-	})
+	f := func(ctx context.Context) (res *Response, err error) {
+		return &resBody, nil
+	}
+
+	h, err := http.NewJSONHandler(f, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return http.WithMiddleware(
+		h,
+		http.CreateRequestLogger(log),
+		http.JSONErrorHandler,
+	), nil
 }

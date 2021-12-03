@@ -7,12 +7,12 @@ import (
 	"github.com/g-wilson/seba"
 )
 
-func (h *Handler) useRefreshToken(ctx context.Context, token string, client seba.Client) (string, string, error) {
+func (f *Function) useRefreshToken(ctx context.Context, token string, client seba.Client) (string, string, error) {
 	if !client.EnableRefreshTokenGrant {
 		return "", "", seba.ErrNotSupportedByClient
 	}
 
-	rt, err := h.Storage.GetRefreshTokenByHashedToken(ctx, sha256Hex(token))
+	rt, err := f.Storage.GetRefreshTokenByHashedToken(ctx, sha256Hex(token))
 	if err != nil {
 		return "", "", err
 	}
@@ -29,7 +29,7 @@ func (h *Handler) useRefreshToken(ctx context.Context, token string, client seba
 		return "", "", seba.ErrRefreshTokenExpired
 	}
 
-	err = h.Storage.SetRefreshTokenUsed(ctx, rt.ID, rt.UserID)
+	err = f.Storage.SetRefreshTokenUsed(ctx, rt.ID, rt.UserID)
 	if err != nil {
 		return "", "", err
 	}
