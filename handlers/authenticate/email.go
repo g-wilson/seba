@@ -36,14 +36,15 @@ func (f *Function) useEmailToken(ctx context.Context, token string, client seba.
 		return "", "", seba.ErrAuthnRevoked
 	}
 
-	challengeBytes, err := base64.StdEncoding.DecodeString(authn.PKCEChallenge)
+	verifierBytes, err := base64.RawURLEncoding.DecodeString(*verifier)
 	if err != nil {
 		return "", "", err
 	}
 
-	hashedVerifier := sha256.Sum256([]byte(*verifier))
+	hashedVerifier := sha256.Sum256(verifierBytes)
+	b64HashedVerifier := base64.RawURLEncoding.EncodeToString(hashedVerifier[:])
 
-	if subtle.ConstantTimeCompare(hashedVerifier[:], challengeBytes) != 1 {
+	if subtle.ConstantTimeCompare([]byte(b64HashedVerifier), []byte(authn.PKCEChallenge)) != 1 {
 		return "", "", seba.ErrPKCEChallengeFailed
 	}
 

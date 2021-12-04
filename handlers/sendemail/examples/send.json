@@ -1,5 +1,5 @@
 {
-	"body": "{\"client_id\":\"devclient\",\"email\":\"recipient@example.com\",\"state\":\"a\",\"pkce_challenge\":\"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\"}",
+	"body": "{\"client_id\":\"devclient\",\"email\":\"recipient@example.com\",\"state\":\"a\",\"pkce_challenge\":\"oExbw1EXvwj0Nj2b6lwz1oSm2kZVDnHTaaV91a181KQ\"}",
 	"path": "/test/hello",
 	"headers": {
 		"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",

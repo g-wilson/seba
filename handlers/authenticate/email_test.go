@@ -35,7 +35,7 @@ func TestHandler_useEmailToken(t *testing.T) {
 		Storage: &storage.Mock{},
 	}
 
-	codeVerifier := "a" // "ypeBEsobvcr6wjGzmiPcTaeG7/gUfE5yuYB3ha/uSLs=" = base64 encoded string of the sha256 hash
+	codeVerifier := "INq4Mu12zBYltJc6D54Ja7Omwn5EG6K_v_6SAgS3luk" // challenge: "oExbw1EXvwj0Nj2b6lwz1oSm2kZVDnHTaaV91a181KQ"
 
 	tests := []struct {
 		name        string

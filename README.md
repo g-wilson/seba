@@ -116,6 +116,14 @@ Response: 204
 - The user must follow the URL to your application (e.g. a website or mobile app)
 - The client must check that the state parameter of the callback URL matches the persisted one
 
+For testing, you can use JS repl to create the PKCE pairs
+
+```js
+const bytes = crypto.randomBytes(32);
+const verifier = bytes.toString('base64url'); // 'INq4Mu12zBYltJc6D54Ja7Omwn5EG6K_v_6SAgS3luk'
+const challenge = crypto.createHash('sha256').update(bytes).digest('base64url'); // 'oExbw1EXvwj0Nj2b6lwz1oSm2kZVDnHTaaV91a181KQ'
+```
+
 ### POST /2021-09-01/authenticate
 
 This the equivalent oAuth 2 "token endpoint".

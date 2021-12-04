@@ -20,7 +20,7 @@ func (s *Mock) GetAuthenticationByID(ctx context.Context, authenticationID strin
 }
 
 func (s *Mock) GetAuthenticationByHashedCode(ctx context.Context, hashedCode string) (seba.Authentication, error) {
-	pkceValue := "ypeBEsobvcr6wjGzmiPcTaeG7/gUfE5yuYB3ha/uSLs=" // base64 encoded string of the sha256 hash of "a"
+	pkceValue := "oExbw1EXvwj0Nj2b6lwz1oSm2kZVDnHTaaV91a181KQ" // verifier: "INq4Mu12zBYltJc6D54Ja7Omwn5EG6K_v_6SAgS3luk"
 
 	switch hashedCode {
 	case sha256Hex("code-exists"):
@@ -79,7 +79,7 @@ func (s *Mock) GetAuthenticationByHashedCode(ctx context.Context, hashedCode str
 			Email:         "test@example.com",
 			ClientID:      "client_a",
 			CreatedAt:     time.Now().UTC().Add(0 - (30 * time.Second)),
-			PKCEChallenge: "ypeBEaaaaaaaaaaaaaaaaaaa7/gUfE5yuYB3ha/uSLs=",
+			PKCEChallenge: "J059Kw2PQnv2Ufdgb2dr5kswYuFqGKxpMiO_02dH2kA",
 		}, nil
 	default:
 		return seba.Authentication{}, seba.ErrAuthnNotFound

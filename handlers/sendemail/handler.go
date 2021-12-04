@@ -12,7 +12,8 @@ import (
 	"github.com/g-wilson/seba/internal/storage"
 	"github.com/g-wilson/seba/internal/token"
 
-	logger "github.com/g-wilson/runtime/ctxlog"
+	"github.com/g-wilson/runtime/ctxlog"
+	"github.com/g-wilson/runtime/hand"
 )
 
 type Function struct {
@@ -30,7 +31,7 @@ type Request struct {
 }
 
 func (f *Function) Do(ctx context.Context, req *Request) error {
-	log := logger.FromContext(ctx).Entry()
+	log := ctxlog.FromContext(ctx).Entry()
 
 	client, ok := f.Clients[req.ClientID]
 	if !ok {
@@ -60,9 +61,7 @@ func (f *Function) Do(ctx context.Context, req *Request) error {
 
 	err = f.Emailer.SendAuthenticationEmail(ctx, req.Email, fromAddress, linkURL)
 	if err != nil {
-		log.Errorf("authn email sending failed: %v", err)
-
-		return seba.ErrSendingEmail
+		return hand.Wrap("email_send_failed", err)
 	}
 
 	return nil
