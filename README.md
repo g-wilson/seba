@@ -231,6 +231,23 @@ The identity token provides the `user_id` as the subject in the same way as the 
 
 `sfe`: "Second Factor Enrolled" is `true` if the user has registered at least one hardware 2FA key credential.
 
+### GET /2021-09-01/status
+
+This route must be configured to use the API Gateway JWT Authorizer. If set up correctly, it validates access tokens and returns basic claims information directly from the token. Its purpose is for clients to introspect the access token (e.g. to check validity or check scopes).
+
+Response:
+
+```json
+{
+	"user_id": "user_21nUgACnIepXoZq0TnYqWcgflZZ",
+	"client_id": "client_1",
+	"second_factor_verified": false,
+	"scopes": [
+		"api"
+	]
+}
+```
+
 ### POST /2021-09-01/start_webauthn_registration
 
 Begins the hardware 2FA registration flow. See [here](https://webauthn.io/) for more info.

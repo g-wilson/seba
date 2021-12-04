@@ -2,7 +2,12 @@ package idcontext
 
 import (
 	"context"
-	"strings"
+
+	"github.com/g-wilson/runtime/ctxlog"
+	"github.com/g-wilson/runtime/http"
+	"github.com/sirupsen/logrus"
+
+	"github.com/aws/aws-lambda-go/events"
 )
 
 type identityContextKey string
@@ -17,30 +22,14 @@ type Identity struct {
 	SecondFactorVerified bool
 }
 
-// NewFromClaims attempts to create an Identity from a map of access token claims
-func NewFromClaims(claims map[string]interface{}) Identity {
-	b := Identity{}
-
-	if sub, ok := claims["sub"].(string); ok {
-		b.UserID = sub
-	}
-	if cid, ok := claims["cid"].(string); ok {
-		b.ClientID = cid
-	}
-	if sc, ok := claims["scope"].(string); ok {
-		b.Scopes = strings.Split(sc, " ")
-	}
-
-	if sfv, ok := claims["sfv"].(bool); ok {
-		b.SecondFactorVerified = sfv
-	}
-
-	return b
+// Exists returns true if an identity is non-zero
+func (i Identity) Exists() bool {
+	return i.UserID != ""
 }
 
 // HasScope returns true if the bearer does possess a given scope
-func (uc Identity) HasScope(scope string) bool {
-	for _, sc := range uc.Scopes {
+func (i Identity) HasScope(scope string) bool {
+	for _, sc := range i.Scopes {
 		if sc == scope {
 			return true
 		}
@@ -50,24 +39,56 @@ func (uc Identity) HasScope(scope string) bool {
 }
 
 // GetIdentityContext returns an identity from the request context
-func GetIdentityContext(ctx context.Context) *Identity {
+func GetIdentityContext(ctx context.Context) Identity {
 	val := ctx.Value(ctxkey)
 
-	if claims, ok := val.(*Identity); ok {
-		return claims
+	if id, ok := val.(Identity); ok {
+		return id
 	}
 
-	return &Identity{}
+	return Identity{}
 }
 
 // SetIdentityContext adds an Identity to a Go context, typically the request
-func SetIdentityContext(ctx context.Context, b Identity) context.Context {
-	ctx = context.WithValue(ctx, ctxkey, b)
+func SetIdentityContext(ctx context.Context, i Identity) context.Context {
+	ctx = context.WithValue(ctx, ctxkey, i)
 
 	return ctx
 }
 
-// IdentityProvider matches the runtime library IdentityProvider type
-func IdentityProvider(ctx context.Context, claims map[string]interface{}) context.Context {
-	return SetIdentityContext(ctx, NewFromClaims(claims))
+// Middleware is a runtime (the library) compatible middlewhere which will convert
+// the JWT Authorizer claims in a HTTP API Gateway Lambda event into an Identity struct
+func Middleware(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(ctx context.Context, event events.APIGatewayV2HTTPRequest) (events.APIGatewayProxyResponse, error) {
+		authdata := event.RequestContext.Authorizer.JWT
+
+		i := Identity{
+			Scopes: authdata.Scopes,
+		}
+
+		if sub, ok := authdata.Claims["sub"]; ok {
+			i.UserID = sub
+		}
+		if cid, ok := authdata.Claims["cid"]; ok {
+			i.ClientID = cid
+		}
+		if sfv, ok := authdata.Claims["sfv"]; ok {
+			i.SecondFactorVerified = sfv == "true"
+		}
+
+		ctx = SetIdentityContext(ctx, i)
+
+		if reqLog := ctxlog.FromContext(ctx); reqLog != nil {
+			reqLog.Update(
+				reqLog.Entry().WithFields(logrus.Fields{
+					"auth_user_id":       i.UserID,
+					"auth_client_id":     i.ClientID,
+					"auth_second_factor": i.SecondFactorVerified,
+					"auth_scopes":        i.Scopes,
+				}),
+			)
+		}
+
+		return h.Handle(ctx, event)
+	})
 }

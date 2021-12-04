@@ -9,6 +9,7 @@ import (
 	"github.com/g-wilson/seba/handlers/openidconfig"
 	"github.com/g-wilson/seba/handlers/openidkeys"
 	"github.com/g-wilson/seba/handlers/sendemail"
+	"github.com/g-wilson/seba/handlers/status"
 	"github.com/g-wilson/seba/handlers/webauthnregistrationcomplete"
 	"github.com/g-wilson/seba/handlers/webauthnregistrationstart"
 	"github.com/g-wilson/seba/handlers/webauthnverificationcomplete"
@@ -24,6 +25,7 @@ var Handlers = map[string]initFn{
 	"openidconfig":                 openidconfig.Init,
 	"openidkeys":                   openidkeys.Init,
 	"authenticate":                 authenticate.Init,
+	"status":                       status.Init,
 	"sendemail":                    sendemail.Init,
 	"webauthnregistrationstart":    webauthnregistrationstart.Init,
 	"webauthnregistrationcomplete": webauthnregistrationcomplete.Init,

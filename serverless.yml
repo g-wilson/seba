@@ -14,6 +14,13 @@ provider:
     cors: true
     disableDefaultEndpoint: true
     shouldStartNameWithService: true
+    authorizers:
+      seba-dev:
+        type: jwt
+        identitySource: $request.header.Authorization
+        issuerUrl: https://identity.0xf09f8dba.com
+        audience:
+          - https://platform.0xf09f8dba.com
   environment:
     LOG_FORMAT: ${self:custom.LOG_FORMAT.${self:provider.stage}}
     LOG_LEVEL: ${self:custom.LOG_LEVEL.${self:provider.stage}}
@@ -52,6 +59,19 @@ functions:
       - httpApi:
           path: /2021-09-01/authenticate
           method: post
+  status:
+    handler: ${self:custom.monobinaryPath}
+    environment:
+      LAMBDA_GO_ENTRYPOINT: status
+      AUTH_DYNAMO_TABLE_NAME: ${self:custom.AUTH_DYNAMO_TABLE_NAME.${self:provider.stage}}
+    events:
+      - httpApi:
+          path: /2021-09-01/status
+          method: get
+          authorizer:
+            name: seba-dev
+            scopes:
+              - api
   sendemail:
     handler: ${self:custom.monobinaryPath}
     environment:

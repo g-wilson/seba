@@ -3,7 +3,6 @@ package seba
 import (
 	"time"
 
-	"github.com/g-wilson/runtime"
 	"github.com/g-wilson/runtime/hand"
 )
 
@@ -14,10 +13,8 @@ const (
 )
 
 var (
-	ErrAccessDenied = hand.New(runtime.ErrCodeAccessDenied)
-
-	ErrCreatingEmail = hand.New("create_email_failed")
-	ErrSendingEmail  = hand.New("send_email_failed")
+	ErrNoAuthentication = hand.New(hand.ErrCodeNoAuthentication)
+	ErrAccessDenied     = hand.New(hand.ErrCodeAccessDenied)
 
 	ErrNotSupportedByClient = hand.New("not_supported_by_client")
 	ErrPKCEVerifierRequired = hand.New("pkce_verifier_required")
