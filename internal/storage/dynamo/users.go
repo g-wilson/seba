@@ -21,7 +21,7 @@ func (s *DynamoStorage) GetUserByID(ctx context.Context, userID string) (seba.Us
 	err := s.db.Table(s.table).
 		Get("id", userID).
 		Range("relation", dynamo.Equal, userID).
-		OneWithContext(ctx, ent)
+		OneWithContext(ctx, &ent)
 	if err != nil {
 		if err == dynamo.ErrNotFound {
 			return seba.User{}, seba.ErrUserNotFound
@@ -45,7 +45,7 @@ func (s *DynamoStorage) GetUserByEmail(ctx context.Context, email string) (seba.
 		Get("lookup", email).
 		Index("valueLookup").
 		Range("id", dynamo.BeginsWith, TypePrefixEmail).
-		OneWithContext(ctx, emailEnt)
+		OneWithContext(ctx, &emailEnt)
 	if err != nil {
 		if err == dynamo.ErrNotFound {
 			return seba.User{}, seba.ErrUserNotFound
@@ -60,7 +60,7 @@ func (s *DynamoStorage) GetUserByEmail(ctx context.Context, email string) (seba.
 	err = s.db.Table(s.table).
 		Get("id", emailEnt.UserID).
 		Range("relation", dynamo.BeginsWith, TypePrefixUser).
-		OneWithContext(ctx, ent)
+		OneWithContext(ctx, &ent)
 	if err != nil {
 		if err == dynamo.ErrNotFound {
 			return seba.User{}, seba.ErrUserNotFound

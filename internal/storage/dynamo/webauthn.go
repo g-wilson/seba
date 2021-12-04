@@ -61,7 +61,7 @@ func (s *DynamoStorage) GetWebauthnChallenge(ctx context.Context, challengeID st
 	err := s.db.Table(s.table).
 		Get("id", challengeID).
 		Range("relation", dynamo.BeginsWith, TypePrefixWebauthnChallenge).
-		OneWithContext(ctx, ent)
+		OneWithContext(ctx, &ent)
 	if err != nil {
 		if err == dynamo.ErrNotFound {
 			err = seba.ErrWebauthnChallengeNotFound
@@ -105,7 +105,7 @@ func (s *DynamoStorage) GetWebauthnCredentialByCredentialID(ctx context.Context,
 		Get("lookup", credentialID).
 		Index("valueLookup").
 		Range("id", dynamo.BeginsWith, TypePrefixWebauthnCredential).
-		OneWithContext(ctx, ent)
+		OneWithContext(ctx, &ent)
 	if err != nil {
 		if err == dynamo.ErrNotFound {
 			err = seba.ErrWebauthnCredentialNotFound

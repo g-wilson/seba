@@ -40,7 +40,7 @@ func (s *DynamoStorage) GetAuthenticationByID(ctx context.Context, authenticatio
 	err := s.db.Table(s.table).
 		Get("id", authenticationID).
 		Range("relation", dynamo.BeginsWith, TypePrefixAuthentication).
-		OneWithContext(ctx, ent)
+		OneWithContext(ctx, &ent)
 	if err != nil {
 		if err == dynamo.ErrNotFound {
 			err = seba.ErrAuthnNotFound
@@ -61,7 +61,7 @@ func (s *DynamoStorage) GetAuthenticationByHashedCode(ctx context.Context, hashe
 		Get("lookup", hashedCode).
 		Index("valueLookup").
 		Range("id", dynamo.BeginsWith, TypePrefixAuthentication).
-		OneWithContext(ctx, ent)
+		OneWithContext(ctx, &ent)
 	if err != nil {
 		if err == dynamo.ErrNotFound {
 			return seba.Authentication{}, seba.ErrAuthnNotFound

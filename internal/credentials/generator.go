@@ -73,6 +73,7 @@ func (g *Generator) CreateRefreshToken(ctx context.Context, user seba.User, clie
 
 func (g *Generator) CreateIDToken(user seba.User, client seba.Client) *IDToken {
 	return &IDToken{
+		signer: g.signer,
 		claims: &IDTokenClaims{
 			Emails:               []string{},
 			SecondFactorEnrolled: false,

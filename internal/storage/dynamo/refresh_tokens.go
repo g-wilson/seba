@@ -40,7 +40,7 @@ func (s *DynamoStorage) GetRefreshTokenByID(ctx context.Context, reftokID string
 	err := s.db.Table(s.table).
 		Get("id", reftokID).
 		Range("relation", dynamo.BeginsWith, TypePrefixUser).
-		OneWithContext(ctx, ent)
+		OneWithContext(ctx, &ent)
 	if err != nil {
 		if err == dynamo.ErrNotFound {
 			err = seba.ErrRefreshTokenNotFound
@@ -61,7 +61,7 @@ func (s *DynamoStorage) GetRefreshTokenByHashedToken(ctx context.Context, hashed
 		Get("lookup", hashedToken).
 		Index("valueLookup").
 		Range("id", dynamo.BeginsWith, TypePrefixRefreshToken).
-		OneWithContext(ctx, ent)
+		OneWithContext(ctx, &ent)
 	if err != nil {
 		if err == dynamo.ErrNotFound {
 			err = seba.ErrRefreshTokenNotFound
