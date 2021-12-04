@@ -7,7 +7,7 @@ variablesResolutionMode: 20210326
 provider:
   name: aws
   runtime: go1.x
-  stage: ${opt:stage,'dev'}
+  stage: ${opt:stage,'local'}
   lambdaHashingVersion: 20201221
   region: eu-west-1
   httpApi:
@@ -15,8 +15,8 @@ provider:
     disableDefaultEndpoint: true
     shouldStartNameWithService: true
   environment:
-      LOG_FORMAT: json
-      LOG_LEVEL: info
+    LOG_FORMAT: ${self:custom.LOG_FORMAT.${self:provider.stage}}
+    LOG_LEVEL: ${self:custom.LOG_LEVEL.${self:provider.stage}}
 
 package:
   patterns:
@@ -117,24 +117,40 @@ functions:
 
 custom:
   stages:
-    - dev
+    - local
+    - prod
   monobinaryPath: "bin/service"
+  LOG_LEVEL:
+    local: debug
+    prod: info
+  LOG_FORMAT:
+    local: text
+    prod: json
   AUTH_ISSUER:
-    dev: ${env:AUTH_ISSUER}
+    local: ${env:AUTH_ISSUER}
+    prod: ${env:AUTH_ISSUER}
   AUTH_DYNAMO_TABLE_NAME:
-    dev: ${env:AUTH_DYNAMO_TABLE_NAME}
+    local: ${env:AUTH_DYNAMO_TABLE_NAME}
+    prod: ${env:AUTH_DYNAMO_TABLE_NAME}
   AUTH_PRIVATE_KEY:
-    dev: ${env:AUTH_PRIVATE_KEY}
+    local: ${env:AUTH_PRIVATE_KEY}
+    prod: ${env:AUTH_PRIVATE_KEY}
     # prod: ${ssm:/seba/prod/AUTH_PRIVATE_KEY}
   ACTUALLY_SEND_EMAILS:
-    dev: true
+    local: ${env:AUTH_PRIVATE_KEY}
+    prod: ${env:AUTH_PRIVATE_KEY}
   EMAIL_SENDER_DOMAIN:
-    dev: ${env:EMAIL_SENDER_DOMAIN}
+    local: ${env:EMAIL_SENDER_DOMAIN}
+    prod: ${env:EMAIL_SENDER_DOMAIN}
   EMAIL_REPLY_ADDRESS:
-    dev: ${env:EMAIL_REPLY_ADDRESS}
+    local: ${env:EMAIL_REPLY_ADDRESS}
+    prod: ${env:EMAIL_REPLY_ADDRESS}
   GOOGLE_CLIENT_ID:
-    dev: ${env:GOOGLE_CLIENT_ID}
+    local: ${env:GOOGLE_CLIENT_ID}
+    prod: ${env:GOOGLE_CLIENT_ID}
   WEBAUTHN_DISPLAY_NAME:
-    dev: ${env:WEBAUTHN_DISPLAY_NAME}
+    local: ${env:WEBAUTHN_DISPLAY_NAME}
+    prod: ${env:WEBAUTHN_DISPLAY_NAME}
   WEBAUTHN_ORIGIN:
-    dev: ${env:WEBAUTHN_ORIGIN}
+    local: ${env:WEBAUTHN_ORIGIN}
+    prod: ${env:WEBAUTHN_ORIGIN}
