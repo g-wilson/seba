@@ -4,8 +4,6 @@ import (
 	"context"
 
 	"github.com/g-wilson/seba"
-
-	logger "github.com/g-wilson/runtime/ctxlog"
 )
 
 func (f *Function) useGoogleToken(ctx context.Context, code string, client seba.Client) (string, string, error) {
@@ -15,11 +13,9 @@ func (f *Function) useGoogleToken(ctx context.Context, code string, client seba.
 
 	cl, err := f.GoogleVerifier.Verify(ctx, code)
 	if err != nil {
-		logger.FromContext(ctx).Update(
-			logger.FromContext(ctx).Entry().WithField("google_verifier_error", err),
-		)
-
-		return "", "", seba.ErrGoogleVerifyFailed.WithMessage("Google ID token invalid")
+		return "", "", seba.ErrGoogleVerifyFailed.
+			WithCause(err).
+			WithMessage("Google ID token invalid")
 	}
 
 	if cl.Nonce == "" {

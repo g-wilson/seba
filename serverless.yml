@@ -24,6 +24,8 @@ provider:
   environment:
     LOG_FORMAT: ${self:custom.LOG_FORMAT.${self:provider.stage}}
     LOG_LEVEL: ${self:custom.LOG_LEVEL.${self:provider.stage}}
+    MONGODB_URI: ${self:custom.MONGODB_URI.${self:provider.stage}}
+    MONGODB_DBNAME: ${self:custom.MONGODB_DBNAME.${self:provider.stage}}
 
 package:
   patterns:
@@ -51,7 +53,6 @@ functions:
     handler: ${self:custom.monobinaryPath}
     environment:
       LAMBDA_GO_ENTRYPOINT: authenticate
-      AUTH_DYNAMO_TABLE_NAME: ${self:custom.AUTH_DYNAMO_TABLE_NAME.${self:provider.stage}}
       AUTH_ISSUER: ${self:custom.AUTH_ISSUER.${self:provider.stage}}
       AUTH_PRIVATE_KEY: ${self:custom.AUTH_PRIVATE_KEY.${self:provider.stage}}
       GOOGLE_CLIENT_ID: ${self:custom.GOOGLE_CLIENT_ID.${self:provider.stage}}
@@ -63,7 +64,6 @@ functions:
     handler: ${self:custom.monobinaryPath}
     environment:
       LAMBDA_GO_ENTRYPOINT: status
-      AUTH_DYNAMO_TABLE_NAME: ${self:custom.AUTH_DYNAMO_TABLE_NAME.${self:provider.stage}}
     events:
       - httpApi:
           path: /2021-09-01/status
@@ -76,7 +76,6 @@ functions:
     handler: ${self:custom.monobinaryPath}
     environment:
       LAMBDA_GO_ENTRYPOINT: sendemail
-      AUTH_DYNAMO_TABLE_NAME: ${self:custom.AUTH_DYNAMO_TABLE_NAME.${self:provider.stage}}
       ACTUALLY_SEND_EMAILS: ${self:custom.ACTUALLY_SEND_EMAILS.${self:provider.stage}}
       EMAIL_SENDER_DOMAIN: ${self:custom.EMAIL_SENDER_DOMAIN.${self:provider.stage}}
       EMAIL_REPLY_ADDRESS: ${self:custom.EMAIL_REPLY_ADDRESS.${self:provider.stage}}
@@ -88,7 +87,6 @@ functions:
     handler: ${self:custom.monobinaryPath}
     environment:
       LAMBDA_GO_ENTRYPOINT: webauthnregistrationstart
-      AUTH_DYNAMO_TABLE_NAME: ${self:custom.AUTH_DYNAMO_TABLE_NAME.${self:provider.stage}}
       AUTH_ISSUER: ${self:custom.AUTH_ISSUER.${self:provider.stage}}
       WEBAUTHN_DISPLAY_NAME: ${self:custom.WEBAUTHN_DISPLAY_NAME.${self:provider.stage}}
       WEBAUTHN_ORIGIN: ${self:custom.WEBAUTHN_ORIGIN.${self:provider.stage}}
@@ -100,7 +98,6 @@ functions:
     handler: ${self:custom.monobinaryPath}
     environment:
       LAMBDA_GO_ENTRYPOINT: webauthnregistrationcomplete
-      AUTH_DYNAMO_TABLE_NAME: ${self:custom.AUTH_DYNAMO_TABLE_NAME.${self:provider.stage}}
       AUTH_ISSUER: ${self:custom.AUTH_ISSUER.${self:provider.stage}}
       AUTH_PRIVATE_KEY: ${self:custom.AUTH_PRIVATE_KEY.${self:provider.stage}}
       WEBAUTHN_DISPLAY_NAME: ${self:custom.WEBAUTHN_DISPLAY_NAME.${self:provider.stage}}
@@ -113,7 +110,6 @@ functions:
     handler: ${self:custom.monobinaryPath}
     environment:
       LAMBDA_GO_ENTRYPOINT: webauthnverificationstart
-      AUTH_DYNAMO_TABLE_NAME: ${self:custom.AUTH_DYNAMO_TABLE_NAME.${self:provider.stage}}
       AUTH_ISSUER: ${self:custom.AUTH_ISSUER.${self:provider.stage}}
       WEBAUTHN_DISPLAY_NAME: ${self:custom.WEBAUTHN_DISPLAY_NAME.${self:provider.stage}}
       WEBAUTHN_ORIGIN: ${self:custom.WEBAUTHN_ORIGIN.${self:provider.stage}}
@@ -125,7 +121,6 @@ functions:
     handler: ${self:custom.monobinaryPath}
     environment:
       LAMBDA_GO_ENTRYPOINT: webauthnverificationcomplete
-      AUTH_DYNAMO_TABLE_NAME: ${self:custom.AUTH_DYNAMO_TABLE_NAME.${self:provider.stage}}
       AUTH_ISSUER: ${self:custom.AUTH_ISSUER.${self:provider.stage}}
       AUTH_PRIVATE_KEY: ${self:custom.AUTH_PRIVATE_KEY.${self:provider.stage}}
       WEBAUTHN_DISPLAY_NAME: ${self:custom.WEBAUTHN_DISPLAY_NAME.${self:provider.stage}}
@@ -146,12 +141,15 @@ custom:
   LOG_FORMAT:
     local: text
     prod: json
+  MONGODB_URI:
+    local: ${env:MONGODB_URI}
+    prod: ${env:MONGODB_URI}
+  MONGODB_DBNAME:
+    local: ${env:MONGODB_DBNAME}
+    prod: ${env:MONGODB_DBNAME}
   AUTH_ISSUER:
     local: ${env:AUTH_ISSUER}
     prod: ${env:AUTH_ISSUER}
-  AUTH_DYNAMO_TABLE_NAME:
-    local: ${env:AUTH_DYNAMO_TABLE_NAME}
-    prod: ${env:AUTH_DYNAMO_TABLE_NAME}
   AUTH_PRIVATE_KEY:
     local: ${env:AUTH_PRIVATE_KEY}
     prod: ${env:AUTH_PRIVATE_KEY}

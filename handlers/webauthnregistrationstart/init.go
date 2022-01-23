@@ -1,18 +1,20 @@
 package webauthnregistrationstart
 
 import (
+	"context"
 	"embed"
 	"os"
+	"time"
 
 	"github.com/g-wilson/seba"
-	dynamo "github.com/g-wilson/seba/internal/storage/dynamo"
+	mongostorage "github.com/g-wilson/seba/internal/storage/mongo"
 	"github.com/g-wilson/seba/internal/webauthn"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/g-wilson/runtime/ctxlog"
 	"github.com/g-wilson/runtime/http"
 	"github.com/g-wilson/runtime/schema"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 //go:embed *.json
@@ -21,27 +23,28 @@ var fs embed.FS
 func Init() (http.Handler, error) {
 	log := ctxlog.Create("webauthn-registration-start", os.Getenv("LOG_FORMAT"), os.Getenv("LOG_LEVEL"))
 
-	awsConfig := aws.NewConfig().WithRegion(os.Getenv("AWS_REGION"))
-	awsSession := session.Must(session.NewSession())
+	initCtx, cancelFn := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancelFn()
 
-	dynamoStorage := dynamo.New(dynamo.Params{
-		AWSSession: awsSession,
-		AWSConfig:  awsConfig,
-		TableName:  os.Getenv("AUTH_DYNAMO_TABLE_NAME"),
-	})
+	mongoConn, err := mongo.Connect(initCtx, options.Client().ApplyURI(os.Getenv("MONGODB_URI")))
+	if err != nil {
+		return nil, err
+	}
+
+	mongoStorage := mongostorage.New(mongoConn.Database(os.Getenv("MONGODB_DBNAME")))
 
 	webauthn, err := webauthn.New(webauthn.Params{
 		RPDisplayName: os.Getenv("WEBAUTHN_DISPLAY_NAME"),
 		RPID:          os.Getenv("AUTH_ISSUER"),
 		RPOrigin:      os.Getenv("WEBAUTHN_ORIGIN"),
-		Storage:       dynamoStorage,
+		Storage:       mongoStorage,
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	f := &Function{
-		Storage:  dynamoStorage,
+		Storage:  mongoStorage,
 		Clients:  seba.ClientsByID,
 		Webauthn: webauthn,
 	}

@@ -29,11 +29,11 @@ SEBA is designed to provide simple authentication - not authorization. oAuth 2 i
 
 There is a Storage interface so that multiple storage backends can be developed.
 
-At the moment there is one provider, DynamoDB. It uses a single-table design to minimise provisioning steps, and allow you to use a truly serverless pay-as-you-use pricing model.
+At the moment there are two providers, DynamoDB and MongoDB.
 
-## API
+## API endpoints (Lambda handler functions)
 
-### GET /.well-known/openid-configuration
+### GET openid_config
 
 Necessary for use with AWS API Gateway JWT Authorizer, this is a simple endpoint which returns the configuration params necessary for API Gateway to validate the access tokens.
 
@@ -68,7 +68,7 @@ Response:
 
 ```
 
-### GET /.well-known/jwks.json
+### openid_keys
 
 Necessary for use with AWS API Gateway JWT Authorizer, this is a simple endpoint which returns a set of JSON Web Key (JWK) objects against which the JWT access tokens will be validated by API Gateway.
 
@@ -91,7 +91,7 @@ Response:
 }
 ```
 
-### POST /2021-09-01/send_authentication_email
+### send_authentication_email
 
 Sends an email to the provided address with a callback URL to your client. The URL will have query parameters which you can then use on the authentication endpoint.
 
@@ -124,7 +124,7 @@ const verifier = bytes.toString('base64url'); // 'INq4Mu12zBYltJc6D54Ja7Omwn5EG6
 const challenge = crypto.createHash('sha256').update(bytes).digest('base64url'); // 'oExbw1EXvwj0Nj2b6lwz1oSm2kZVDnHTaaV91a181KQ'
 ```
 
-### POST /2021-09-01/authenticate
+### authenticate
 
 This the equivalent oAuth 2 "token endpoint".
 
@@ -231,7 +231,7 @@ The identity token provides the `user_id` as the subject in the same way as the 
 
 `sfe`: "Second Factor Enrolled" is `true` if the user has registered at least one hardware 2FA key credential.
 
-### GET /2021-09-01/status
+### GET /status
 
 This route must be configured to use the API Gateway JWT Authorizer. If set up correctly, it validates access tokens and returns basic claims information directly from the token. Its purpose is for clients to introspect the access token (e.g. to check validity or check scopes).
 
@@ -248,7 +248,7 @@ Response:
 }
 ```
 
-### POST /2021-09-01/start_webauthn_registration
+### start_webauthn_registration
 
 Begins the hardware 2FA registration flow. See [here](https://webauthn.io/) for more info.
 
@@ -269,7 +269,7 @@ Response:
 }
 ```
 
-### POST /2021-09-01/complete_webauthn_registration
+### complete_webauthn_registration
 
 Registers a hardware 2FA token against a user using the challenge from `/start_webauthn_registration`.
 
@@ -292,7 +292,7 @@ Response:
 }
 ```
 
-### POST /2021-09-01/start_webauthn_verification
+### start_webauthn_verification
 
 Starts the hardware 2FA verification flow. See [here](https://webauthn.io/) for more info.
 
@@ -313,7 +313,7 @@ Response:
 }
 ```
 
-### POST /2021-09-01/complete_webauthn_verification
+### complete_webauthn_verification
 
 Elevates an existing session by asserting the hardware 2FA response using the challenge from `/start_webauthn_verification`.
 

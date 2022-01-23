@@ -1,22 +1,25 @@
 package sendemail
 
 import (
+	"context"
 	"embed"
 	"fmt"
 	html "html/template"
 	"os"
 	text "text/template"
+	"time"
 
 	"github.com/g-wilson/seba"
 	emailer "github.com/g-wilson/seba/internal/emailer/ses"
-	dynamo "github.com/g-wilson/seba/internal/storage/dynamo"
+	mongostorage "github.com/g-wilson/seba/internal/storage/mongo"
 	"github.com/g-wilson/seba/internal/token"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/g-wilson/runtime/ctxlog"
 	"github.com/g-wilson/runtime/http"
 	"github.com/g-wilson/runtime/schema"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 //go:embed *.json
@@ -25,7 +28,6 @@ var fs embed.FS
 func Init() (http.Handler, error) {
 	log := ctxlog.Create("sendemail", os.Getenv("LOG_FORMAT"), os.Getenv("LOG_LEVEL"))
 
-	awsConfig := aws.NewConfig().WithRegion(os.Getenv("AWS_REGION"))
 	awsSession := session.Must(session.NewSession())
 
 	htmlEmailTemplate, err := html.New("authn").Parse(`<p>Sign in by clicking this link: {{.LinkURL}}</p>`)
@@ -47,14 +49,18 @@ func Init() (http.Handler, error) {
 		TextEmailTemplate:   textEmailTemplate,
 	})
 
-	dynamoStorage := dynamo.New(dynamo.Params{
-		AWSSession: awsSession,
-		AWSConfig:  awsConfig,
-		TableName:  os.Getenv("AUTH_DYNAMO_TABLE_NAME"),
-	})
+	initCtx, cancelFn := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancelFn()
+
+	mongoConn, err := mongo.Connect(initCtx, options.Client().ApplyURI(os.Getenv("MONGODB_URI")))
+	if err != nil {
+		return nil, err
+	}
+
+	mongoStorage := mongostorage.New(mongoConn.Database(os.Getenv("MONGODB_DBNAME")))
 
 	f := &Function{
-		Storage: dynamoStorage,
+		Storage: mongoStorage,
 		Emailer: sesEmailer,
 		Clients: seba.ClientsByID,
 		Token:   token.New(),

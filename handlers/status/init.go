@@ -1,32 +1,35 @@
 package status
 
 import (
+	"context"
 	"os"
+	"time"
 
 	"github.com/g-wilson/seba"
 	"github.com/g-wilson/seba/idcontext"
-	"github.com/g-wilson/seba/internal/storage/dynamo"
+	mongostorage "github.com/g-wilson/seba/internal/storage/mongo"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/g-wilson/runtime/ctxlog"
 	"github.com/g-wilson/runtime/http"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func Init() (http.Handler, error) {
 	log := ctxlog.Create("status", os.Getenv("LOG_FORMAT"), os.Getenv("LOG_LEVEL"))
 
-	awsConfig := aws.NewConfig().WithRegion(os.Getenv("AWS_REGION"))
-	awsSession := session.Must(session.NewSession())
+	initCtx, cancelFn := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancelFn()
 
-	dynamoStorage := dynamo.New(dynamo.Params{
-		AWSSession: awsSession,
-		AWSConfig:  awsConfig,
-		TableName:  os.Getenv("AUTH_DYNAMO_TABLE_NAME"),
-	})
+	mongoConn, err := mongo.Connect(initCtx, options.Client().ApplyURI(os.Getenv("MONGODB_URI")))
+	if err != nil {
+		return nil, err
+	}
+
+	mongoStorage := mongostorage.New(mongoConn.Database(os.Getenv("MONGODB_DBNAME")))
 
 	f := &Function{
-		Storage: dynamoStorage,
+		Storage: mongoStorage,
 		Clients: seba.ClientsByID,
 	}
 

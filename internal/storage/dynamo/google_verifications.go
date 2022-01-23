@@ -48,7 +48,7 @@ func (s *DynamoStorage) CreateGoogleVerification(ctx context.Context, nonce, iss
 			}
 		}
 
-		return seba.GoogleVerification{}, fmt.Errorf("dynamo: CreateUserWithEmail: %w", err)
+		return seba.GoogleVerification{}, fmt.Errorf("dynamo: CreateGoogleVerification: %w", err)
 	}
 
 	return ent.ToApp(), nil
