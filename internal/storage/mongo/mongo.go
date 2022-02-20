@@ -66,7 +66,7 @@ func (s *MongoStorage) Setup() (err error) {
 
 	_, err = s.db.Collection("users").Indexes().CreateMany(ctx, []mongo.IndexModel{
 		{
-			Keys:    bson.D{{"email.value", 1}},
+			Keys:    bson.D{{"emails.email", 1}},
 			Options: options.Index().SetUnique(true),
 		},
 	})
